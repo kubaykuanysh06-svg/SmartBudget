@@ -1,0 +1,39 @@
+# Environments
+.env
+.env.local
+.venv
+env/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+dist/
+.nitro/
+.cache/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker
+pgdata/
+redisdata/

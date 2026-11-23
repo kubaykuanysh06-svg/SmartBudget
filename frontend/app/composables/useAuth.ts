@@ -6,7 +6,7 @@ export const useAuth = () => {
     sameSite: 'lax',
   })
   const user = useState<User | null>('auth_user', () => null)
-  const api = useApi()
+  const api = useApi(token)
 
   const isAuthenticated = computed(() => !!token.value)
 

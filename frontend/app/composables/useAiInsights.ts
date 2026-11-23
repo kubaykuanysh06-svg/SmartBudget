@@ -17,7 +17,7 @@ export const useAiInsights = () => {
   }
 
   const sendChatMessage = async (message: string) => {
-    return await api.fetch<{ response: string }>('/ai/chat', {
+    return await api.fetch<{ reply: string }>('/ai/chat', {
       method: 'POST',
       body: { message },
     })

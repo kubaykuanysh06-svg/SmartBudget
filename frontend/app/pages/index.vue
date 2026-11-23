@@ -7,7 +7,7 @@
           <div>
             <p class="text-sm text-gray-500 font-medium">Баланс за месяц</p>
             <p class="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
-              {{ formatCurrency(summary.net_savings) }}
+              {{ formatCurrency(summary.net) }}
             </p>
           </div>
           <div class="p-3 bg-emerald-100 dark:bg-emerald-950/60 rounded-xl text-emerald-600">
@@ -49,7 +49,7 @@
           <div>
             <p class="text-sm text-gray-500 font-medium">Норма сбережений</p>
             <p class="text-2xl font-bold mt-1 text-teal-600">
-              {{ summary.savings_rate.toFixed(1) }}%
+              {{ savingsRate.toFixed(1) }}%
             </p>
           </div>
           <div class="p-3 bg-teal-100 dark:bg-teal-950/60 rounded-xl text-teal-600">
@@ -157,13 +157,13 @@
           <div v-else class="space-y-4">
             <div
               v-for="b in budgets.budgets.value.slice(0, 4)"
-              :key="b.budget.id"
+              :key="b.id"
               class="space-y-1.5"
             >
               <div class="flex items-center justify-between text-xs">
-                <span class="font-medium">{{ b.budget.category?.name || 'Общий' }}</span>
+                <span class="font-medium">{{ b.category?.name || 'Общий' }}</span>
                 <span class="text-gray-500">
-                  {{ formatCurrency(b.spent) }} / {{ formatCurrency(b.budget.limit_amount) }}
+                  {{ formatCurrency(b.spent) }} / {{ formatCurrency(b.limit_amount) }}
                 </span>
               </div>
               <UProgress
@@ -190,29 +190,31 @@ const analytics = useAnalytics()
 const summary = ref({
   total_income: 0,
   total_expense: 0,
-  net_savings: 0,
-  savings_rate: 0,
+  net: 0,
+  transactions_count: 0,
 })
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val || 0)
-}
+const savingsRate = computed(() => {
+  const income = Number(summary.value.total_income)
+  return income ? Number(summary.value.net) / income * 100 : 0
+})
+
+const { formatCurrency } = useCurrencyFormat()
 
 const formatDate = (val: string) => {
   return dayjs(val).format('DD MMM')
 }
 
 onMounted(async () => {
-  try {
-    const [sumData] = await Promise.all([
-      analytics.getSummary(),
-      transactions.fetchTransactions({ limit: 10 }),
-      budgets.fetchBudgets(),
-      aiInsights.fetchInsights(),
-    ])
-    if (sumData) summary.value = sumData
-  } catch {
-    // If unauthenticated or offline, use defaults
-  }
+  const [summaryResult] = await Promise.allSettled([
+    analytics.getSummary({
+      date_from: dayjs().startOf('month').format('YYYY-MM-DD'),
+      date_to: dayjs().endOf('month').format('YYYY-MM-DD'),
+    }),
+    transactions.fetchTransactions({ per_page: 10 }),
+    budgets.fetchBudgets(),
+    aiInsights.fetchInsights(),
+  ])
+  if (summaryResult.status === 'fulfilled') summary.value = summaryResult.value
 })
 </script>

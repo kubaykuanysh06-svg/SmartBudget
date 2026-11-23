@@ -16,7 +16,7 @@ export const useBudgets = () => {
     }
   }
 
-  const createBudget = async (payload: { category_id?: string; limit_amount: number; period: string }) => {
+  const createBudget = async (payload: { category_id?: string; limit_amount: number; period: string; start_date: string }) => {
     const data = await api.fetch<Budget>('/budgets', {
       method: 'POST',
       body: payload,

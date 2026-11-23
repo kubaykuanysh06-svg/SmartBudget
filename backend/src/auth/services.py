@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import User
+from src.categories.services import seed_default_categories
 from src.core.exceptions import BadRequest, NotFound
 from src.core.security import hash_password, verify_password
 
@@ -35,6 +36,7 @@ async def register(
     )
     db.add(user)
     await db.flush()
+    await seed_default_categories(db, user.id)
     return user
 
 

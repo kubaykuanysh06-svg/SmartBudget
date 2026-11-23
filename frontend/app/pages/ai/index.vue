@@ -131,7 +131,7 @@ const isThinking = ref(false)
 
 const quickPrompts = [
   'Где я переплачиваю больше всего?',
-  'Как сэкономить 10 000 ₽ в этом месяце?',
+  'Как сократить расходы в этом месяце?',
   'Оцени мой бюджет на кафе и рестораны',
 ]
 
@@ -152,12 +152,15 @@ const handleSendMessage = async () => {
     const res = await ai.sendChatMessage(userText)
     chatMessages.value.push({
       role: 'assistant',
-      text: res.response || 'Спасибо за вопрос! Проанализировав динамику ваших категорий, рекомендую сфокусироваться на оптимизации ежедневных спонтанных покупок.',
+      text: res.reply,
     })
-  } catch {
+  } catch (error) {
+    const status = (error as { statusCode?: number }).statusCode
     chatMessages.value.push({
       role: 'assistant',
-      text: 'Для включения онлайн-ответов настройте GEMINI_API_KEY в backend/.env. На основе ваших последних транзакций рекомендую установить лимит на категорию Доставка еды и Продукты.',
+      text: status === 503
+        ? 'Для ответа Gemini задайте GEMINI_API_KEY в backend/.env.'
+        : 'Не удалось получить ответ Gemini. Попробуйте ещё раз.',
     })
   } finally {
     isThinking.value = false

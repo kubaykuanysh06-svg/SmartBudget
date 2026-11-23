@@ -4,7 +4,6 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
-  devtools: { enabled: true },
 
   modules: [
     '@nuxt/ui',
@@ -18,17 +17,9 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    apiOrigin: 'http://127.0.0.1:8000',
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api',
-    },
-  },
-
-  nitro: {
-    devProxy: {
-      '/api': {
-        target: 'http://localhost:8000/api',
-        changeOrigin: true,
-      },
+      apiBaseUrl: '/api',
     },
   },
 

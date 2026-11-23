@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.categories.models import Category, CategoryType
-from src.categories.schemas import CategoryTree
+from src.categories.schemas import CategoryResponse, CategoryTree
 from src.core.exceptions import Forbidden, NotFound
 
 # ── Default categories seeded for new users ───────────────
@@ -104,7 +104,8 @@ def build_category_tree(categories: list[Category]) -> list[CategoryTree]:
     """Build a nested tree from a flat list of categories."""
     nodes: dict[uuid.UUID, CategoryTree] = {}
     for cat in categories:
-        nodes[cat.id] = CategoryTree.model_validate(cat)
+        category = CategoryResponse.model_validate(cat)
+        nodes[cat.id] = CategoryTree(**category.model_dump())
 
     roots: list[CategoryTree] = []
     for cat in categories:

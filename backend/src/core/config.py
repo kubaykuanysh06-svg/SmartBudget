@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # ── Gemini AI ─────────────────────────────────────────
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
 
     # ── CORS ──────────────────────────────────────────────
     CORS_ORIGINS: list[str] = [

@@ -29,7 +29,7 @@
       </UCard>
       <UCard>
         <p class="text-sm text-gray-500">Чистая экономия (дельта)</p>
-        <p class="text-2xl font-bold text-emerald-600 mt-1">{{ formatCurrency(summary.net_savings) }}</p>
+        <p class="text-2xl font-bold text-emerald-600 mt-1">{{ formatCurrency(summary.net) }}</p>
       </UCard>
     </div>
 
@@ -44,8 +44,8 @@
       <div v-else class="space-y-4">
         <div v-for="cat in categories" :key="cat.category_id" class="space-y-1">
           <div class="flex justify-between text-sm">
-            <span class="font-medium">{{ cat.category_name }}</span>
-            <span class="text-gray-500">{{ formatCurrency(cat.total_amount) }} ({{ cat.percentage.toFixed(1) }}%)</span>
+            <span class="font-medium">{{ cat.category_name || 'Без категории' }}</span>
+            <span class="text-gray-500">{{ formatCurrency(cat.total) }} ({{ cat.percentage.toFixed(1) }}%)</span>
           </div>
           <UProgress :value="cat.percentage" color="emerald" size="sm" />
         </div>
@@ -63,13 +63,11 @@ const categories = ref<CategoryBreakdown[]>([])
 const summary = ref({
   total_income: 0,
   total_expense: 0,
-  net_savings: 0,
-  savings_rate: 0,
+  net: 0,
+  transactions_count: 0,
 })
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val || 0)
-}
+const { formatCurrency } = useCurrencyFormat()
 
 onMounted(async () => {
   try {

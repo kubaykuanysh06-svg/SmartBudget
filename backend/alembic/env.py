@@ -13,7 +13,7 @@ from src.core.database import Base
 # Import all models to ensure metadata is populated
 from src.auth.models import User  # noqa
 from src.categories.models import Category  # noqa
-from src.transactions.models import Transaction, RecurringTransaction, Attachment  # noqa
+from src.transactions.models import Transaction, RecurringTransaction  # noqa
 from src.budgets.models import Budget  # noqa
 from src.deals.models import Deal, PriceHistory  # noqa
 from src.ai.models import AiInsight  # noqa

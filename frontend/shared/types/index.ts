@@ -26,11 +26,11 @@ export interface CategoryTree extends Category {
 export interface Transaction {
   id: string
   user_id: string
-  category_id: string
+  category_id: string | null
   category?: Category
   amount: number
   type: TransactionType
-  description: string
+  description: string | null
   merchant?: string | null
   transaction_date: string
   tags?: string[]
@@ -40,10 +40,10 @@ export interface Transaction {
 }
 
 export interface TransactionCreate {
-  category_id: string
+  category_id?: string | null
   amount: number
   type: TransactionType
-  description: string
+  description: string | null
   merchant?: string | null
   transaction_date: string
   tags?: string[]
@@ -61,8 +61,7 @@ export interface Budget {
   is_active: boolean
 }
 
-export interface BudgetStatus {
-  budget: Budget
+export interface BudgetStatus extends Budget {
   spent: number
   remaining: number
   percentage: number
@@ -71,22 +70,19 @@ export interface BudgetStatus {
 export interface SummaryAnalytics {
   total_income: number
   total_expense: number
-  net_savings: number
-  savings_rate: number
-  period: string
+  net: number
+  transactions_count: number
 }
 
 export interface CategoryBreakdown {
-  category_id: string
-  category_name: string
-  category_color: string
-  total_amount: number
+  category_id: string | null
+  category_name: string | null
+  total: number
   percentage: number
-  count: number
 }
 
 export interface TrendPoint {
-  date: string
+  month: string
   income: number
   expense: number
 }

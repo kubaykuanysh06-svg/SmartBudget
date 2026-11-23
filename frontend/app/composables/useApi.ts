@@ -1,6 +1,5 @@
-export const useApi = () => {
+export const useApi = (token = useCookie<string | null>('auth_token')) => {
   const config = useRuntimeConfig()
-  const token = useCookie('auth_token')
 
   const fetchWithAuth = async <T>(url: string, options: any = {}): Promise<T> => {
     const headers = {

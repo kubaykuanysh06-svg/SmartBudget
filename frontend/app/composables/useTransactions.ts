@@ -8,11 +8,11 @@ export const useTransactions = () => {
   const fetchTransactions = async (params: Record<string, any> = {}) => {
     loading.value = true
     try {
-      const data = await api.fetch<Transaction[]>('/transactions', {
+      const data = await api.fetch<{ items: Transaction[] }>('/transactions', {
         params,
       })
-      transactions.value = data
-      return data
+      transactions.value = data.items
+      return data.items
     } finally {
       loading.value = false
     }

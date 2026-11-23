@@ -112,9 +112,7 @@ const priceToCheck = ref<number>()
 const isAnalyzing = ref(false)
 const analysisResult = ref<{ is_good_price: boolean; advice: string } | null>(null)
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val || 0)
-}
+const { formatCurrency } = useCurrencyFormat()
 
 const handleCheckPrice = async () => {
   if (!productToCheck.value || !priceToCheck.value) return

@@ -61,7 +61,7 @@ const handleRegister = async () => {
       name: name.value,
       email: email.value,
       password: password.value,
-      currency: 'RUB',
+      currency: 'KZT',
     })
     navigateTo('/')
   } catch (err: any) {

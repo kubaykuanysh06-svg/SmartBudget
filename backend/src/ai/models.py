@@ -32,7 +32,7 @@ class AiInsight(Base):
     type: Mapped[InsightType] = mapped_column(Enum(InsightType), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    insight_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

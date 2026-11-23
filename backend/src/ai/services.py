@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import uuid
 
+from fastapi import HTTPException
+from google import genai
+from google.genai import errors
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,14 +32,20 @@ from src.core.config import settings
 
 async def _call_gemini(prompt: str) -> str:
     """Call the Gemini API and return the text response."""
-    from google import genai
+    if not settings.GEMINI_API_KEY.strip():
+        raise HTTPException(status_code=503, detail="Gemini API key is not configured")
 
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt,
-    )
-    return response.text or ""
+    try:
+        async with genai.Client(api_key=settings.GEMINI_API_KEY).aio as client:
+            response = await client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=prompt,
+            )
+    except errors.APIError:
+        raise HTTPException(status_code=502, detail="Gemini could not answer the request") from None
+    if not response.text:
+        raise HTTPException(status_code=502, detail="Gemini returned an empty response")
+    return response.text
 
 
 def _parse_json(text: str) -> dict | list:

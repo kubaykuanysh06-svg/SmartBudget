@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CategorizeSuggestion(BaseModel):
@@ -26,7 +26,7 @@ class InsightResponse(BaseModel):
     type: str
     title: str
     content: str
-    metadata: dict | None = None
+    metadata: dict | None = Field(default=None, validation_alias="insight_metadata")
     is_read: bool
     created_at: datetime
 

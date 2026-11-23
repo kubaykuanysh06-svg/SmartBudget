@@ -49,14 +49,14 @@
         >
           <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
-              {{ item.category?.icon || '💳' }}
+              {{ categoryFor(item.category_id)?.icon || '💳' }}
             </div>
             <div>
               <p class="font-medium text-sm">{{ item.description }}</p>
               <div class="flex items-center gap-2 mt-0.5">
                 <span class="text-xs text-gray-400">{{ item.merchant || 'Без магазина' }}</span>
                 <span class="text-xs text-gray-300 dark:text-gray-600">•</span>
-                <span class="text-xs text-emerald-600 font-medium">{{ item.category?.name || 'Общая' }}</span>
+                <span class="text-xs text-emerald-600 font-medium">{{ categoryFor(item.category_id)?.name || 'Общая' }}</span>
               </div>
             </div>
           </div>
@@ -98,7 +98,11 @@
             />
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1">Сумма (₽)</label>
+            <label class="block text-xs font-medium mb-1" for="transaction-category">Категория</label>
+            <USelect id="transaction-category" v-model="newForm.category_id" :options="categoryOptions" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Сумма ({{ currency }})</label>
             <UInput v-model.number="newForm.amount" type="number" placeholder="1000" />
           </div>
           <div>
@@ -125,9 +129,11 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import type { TransactionType } from '~~/shared/types'
+import type { CategoryTree, TransactionType } from '~~/shared/types'
 
 const transactions = useTransactions()
+const api = useApi()
+const categoryTree = ref<CategoryTree[]>([])
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 
@@ -141,16 +147,31 @@ const newForm = ref({
   amount: 0,
   description: '',
   merchant: '',
-  category_id: 'default',
+  category_id: '',
   transaction_date: dayjs().format('YYYY-MM-DD'),
 })
+
+function flattenCategories(tree: CategoryTree[]): CategoryTree[] {
+  return tree.flatMap(category => [category, ...flattenCategories(category.children)])
+}
+
+const categories = computed(() => flattenCategories(categoryTree.value))
+const categoryOptions = computed(() => [
+  { label: 'Без категории', value: '' },
+  ...categories.value.filter(category => category.type === newForm.value.type)
+    .map(category => ({ label: category.name, value: category.id })),
+])
+
+watch(() => newForm.value.type, () => { newForm.value.category_id = '' })
+
+const categoryFor = (id: string | null) => categories.value.find(category => category.id === id)
 
 const filteredTransactions = computed(() => {
   return transactions.transactions.value.filter((t) => {
     if (selectedType.value !== 'all' && t.type !== selectedType.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
-      const desc = t.description.toLowerCase()
+      const desc = (t.description || '').toLowerCase()
       const merch = (t.merchant || '').toLowerCase()
       if (!desc.includes(q) && !merch.includes(q)) return false
     }
@@ -158,9 +179,7 @@ const filteredTransactions = computed(() => {
   })
 })
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val || 0)
-}
+const { currency, formatCurrency } = useCurrencyFormat()
 
 const handleDelete = async (id: string) => {
   if (confirm('Удалить эту операцию?')) {
@@ -172,7 +191,10 @@ const handleSubmit = async () => {
   if (!newForm.value.amount || !newForm.value.description) return
   isSubmitting.value = true
   try {
-    await transactions.createTransaction(newForm.value)
+    await transactions.createTransaction({
+      ...newForm.value,
+      category_id: newForm.value.category_id || null,
+    })
     isModalOpen.value = false
     newForm.value.amount = 0
     newForm.value.description = ''
@@ -182,7 +204,11 @@ const handleSubmit = async () => {
   }
 }
 
-onMounted(() => {
-  transactions.fetchTransactions()
+onMounted(async () => {
+  const [, categoryResult] = await Promise.allSettled([
+    transactions.fetchTransactions(),
+    api.fetch<CategoryTree[]>('/categories/tree'),
+  ])
+  if (categoryResult.status === 'fulfilled') categoryTree.value = categoryResult.value
 })
 </script>

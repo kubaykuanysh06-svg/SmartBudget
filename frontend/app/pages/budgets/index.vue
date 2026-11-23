@@ -23,14 +23,14 @@
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <UCard
         v-for="b in budgets.budgets.value"
-        :key="b.budget.id"
+        :key="b.id"
         class="relative overflow-hidden"
       >
         <div class="space-y-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="text-2xl">{{ b.budget.category?.icon || '📦' }}</span>
-              <h3 class="font-semibold">{{ b.budget.category?.name || 'Общий бюджет' }}</h3>
+              <span class="text-2xl">{{ b.category?.icon || '📦' }}</span>
+              <h3 class="font-semibold">{{ b.category?.name || 'Общий бюджет' }}</h3>
             </div>
             <UBadge
               :color="b.percentage > 100 ? 'rose' : b.percentage > 80 ? 'amber' : 'emerald'"
@@ -43,7 +43,7 @@
           <div class="space-y-1">
             <div class="flex justify-between text-xs text-gray-500">
               <span>Потрачено: {{ formatCurrency(b.spent) }}</span>
-              <span>Лимит: {{ formatCurrency(b.budget.limit_amount) }}</span>
+              <span>Лимит: {{ formatCurrency(b.limit_amount) }}</span>
             </div>
             <UProgress
               :value="Math.min(b.percentage, 100)"
@@ -71,7 +71,7 @@
         <h3 class="text-lg font-bold">Установить лимит бюджета</h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium mb-1">Сумма лимита (₽)</label>
+            <label class="block text-xs font-medium mb-1">Сумма лимита ({{ currency }})</label>
             <UInput v-model.number="newLimit" type="number" placeholder="25000" />
           </div>
           <div>
@@ -96,20 +96,21 @@
 </template>
 
 <script setup lang="ts">
+import dayjs from 'dayjs'
+
 const budgets = useBudgets()
 const isModalOpen = ref(false)
 const newLimit = ref(20000)
 const newPeriod = ref('monthly')
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val || 0)
-}
+const { currency, formatCurrency } = useCurrencyFormat()
 
 const handleCreate = async () => {
   if (!newLimit.value) return
   await budgets.createBudget({
     limit_amount: newLimit.value,
     period: newPeriod.value,
+    start_date: dayjs().format('YYYY-MM-DD'),
   })
   isModalOpen.value = false
 }

@@ -5,7 +5,7 @@
 ## 🚀 Стек технологий
 
 - **Backend**: FastAPI 0.115+, Python 3.12, Async SQLAlchemy 2.0, asyncpg, Alembic, Pydantic v2
-- **Frontend**: Nuxt 4 (Vue 3, Composition API, SSR/SSG), Nuxt UI, Tailwind CSS, Pinia
+- **Frontend**: Nuxt 3 в режиме совместимости с Nuxt 4 (Vue 3, Composition API, SSR/SSG), Nuxt UI, Tailwind CSS, Pinia
 - **Database & Cache**: PostgreSQL 16, Redis 7 (ARQ background tasks)
 - **AI**: Google Gemini API (категоризация, проверка цен, персональный коучинг)
 - **Deployment**: Docker, Docker Compose
@@ -71,42 +71,48 @@ smartbudget/
 
 ---
 
-## 🛠️ Быстрый старт с Docker
+## Быстрый старт с Docker на Windows
 
-```bash
-# 1. Склонируйте репозиторий
-git clone https://github.com/kubaykuanysh06-svg/SmartBudget.git
-cd SmartBudget
+Запустите Docker Desktop и дождитесь запуска движка. Выполните команды из
+корня репозитория в PowerShell. Node.js и Python входят в образы контейнеров.
 
-# 2. Настройте .env для backend
-cp backend/.env.example backend/.env
-# Укажите ваш GEMINI_API_KEY и SECRET_KEY в backend/.env
-
-# 3. Запустите все сервисы
-docker-compose up --build
+```powershell
+if (!(Test-Path backend/.env)) {
+    Copy-Item backend/.env.example backend/.env
+    $bytes = New-Object byte[] 48
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+    $secret = [Convert]::ToBase64String($bytes)
+    (Get-Content backend/.env) -replace '^SECRET_KEY=.*', "SECRET_KEY=$secret" |
+        Set-Content -Encoding utf8 backend/.env
+}
+docker compose up --build -d --wait
+docker compose ps
 ```
 
-- **Frontend**: http://localhost:3000
-- **FastAPI Docs (Swagger)**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- Веб-приложение: http://localhost:3001
+- Документация API: http://localhost:8000/docs
+- Проверка API: http://localhost:8000/health
 
----
+Если порт 3001 занят, задайте другой перед запуском, например
+`$env:SMARTBUDGET_FRONTEND_PORT = '3002'`. Интерфейс обращается к API через
+тот же адрес, поэтому отдельная настройка API в браузере не нужна.
 
-## 💻 Локальная разработка
+Миграции PostgreSQL выполняются при старте API. Текущую версию можно проверить
+командой `docker compose exec backend alembic current`. Данные PostgreSQL
+хранятся в томе Compose и сохраняются при остановке или пересборке контейнеров.
 
-### Backend
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # на Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-uvicorn src.main:app --reload --port 8000
-```
+Для раздела «ИИ Ассистент» добавьте свой `GEMINI_API_KEY` в локальный файл
+`backend/.env` и обновите контейнеры командой `docker compose up -d`. По умолчанию
+используется `gemini-3.5-flash-lite`. Регистрация, операции, бюджеты и статистика
+доступны без ключа Gemini.
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Откройте браузер по адресу http://localhost:3000.
+## Сценарий демонстрации
+
+1. Создайте отдельную учётную запись. Для новых аккаунтов интерфейса используется тенге.
+2. В разделе «Транзакции» добавьте доход 50 000 ₸ и расход 8 000 ₸, выбрав
+   категории для обеих операций.
+3. Откройте дашборд. Баланс за месяц должен увеличиться на 42 000 ₸.
+   Обновите страницу и убедитесь, что обе операции сохранились.
+4. На вкладке «Бюджеты» создайте общий лимит 20 000 ₸. Расход 8 000 ₸
+   составляет 40% лимита. В «Аналитике» этот расход отобразится в выбранной категории.

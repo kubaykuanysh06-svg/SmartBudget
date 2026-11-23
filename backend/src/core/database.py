@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -20,8 +21,7 @@ convention = {
 class Base(DeclarativeBase):
     """Shared declarative base for all models."""
 
-    metadata = DeclarativeBase.metadata
-    metadata.naming_convention = convention  # type: ignore[assignment]
+    metadata = MetaData(naming_convention=convention)
 
 
 engine = create_async_engine(

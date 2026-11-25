@@ -155,7 +155,7 @@ const handleSendMessage = async () => {
       text: res.reply,
     })
   } catch (error) {
-    const status = (error as { statusCode?: number }).statusCode
+    const status = getErrorStatus(error)
     chatMessages.value.push({
       role: 'assistant',
       text: status === 503

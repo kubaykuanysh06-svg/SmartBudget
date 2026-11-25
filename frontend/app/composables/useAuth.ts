@@ -1,4 +1,4 @@
-import type { User } from '~~/shared/types'
+import type { AiInsight, BudgetStatus, Deal, Transaction, User } from '~~/shared/types'
 
 export const useAuth = () => {
   const token = useCookie<string | null>('auth_token', {
@@ -9,6 +9,14 @@ export const useAuth = () => {
   const api = useApi(token)
 
   const isAuthenticated = computed(() => !!token.value)
+
+  const clearCachedUserData = () => {
+    useState<Transaction[]>('transactions', () => []).value = []
+    useState<BudgetStatus[]>('budgets_status', () => []).value = []
+    useState<AiInsight[]>('ai_insights', () => []).value = []
+    useState<Deal[]>('deals_list', () => []).value = []
+    useState<Deal[]>('deals_personalized', () => []).value = []
+  }
 
   const fetchUser = async () => {
     if (!token.value) {
@@ -22,11 +30,13 @@ export const useAuth = () => {
     } catch {
       token.value = null
       user.value = null
+      clearCachedUserData()
       return null
     }
   }
 
   const login = async (credentials: { email: string; password: string }) => {
+    clearCachedUserData()
     const data = await api.fetch<{ access_token: string; refresh_token: string }>('/auth/login', {
       method: 'POST',
       body: credentials,
@@ -37,6 +47,7 @@ export const useAuth = () => {
   }
 
   const register = async (payload: { email: string; password: string; name: string; currency?: string }) => {
+    clearCachedUserData()
     const data = await api.fetch<User>('/auth/register', {
       method: 'POST',
       body: payload,
@@ -46,9 +57,19 @@ export const useAuth = () => {
     return data
   }
 
+  const updateProfile = async (payload: { name?: string; currency?: string }) => {
+    const data = await api.fetch<User>('/auth/me', {
+      method: 'PATCH',
+      body: payload,
+    })
+    user.value = data
+    return data
+  }
+
   const logout = () => {
     token.value = null
     user.value = null
+    clearCachedUserData()
     navigateTo('/auth/login')
   }
 
@@ -59,6 +80,7 @@ export const useAuth = () => {
     fetchUser,
     login,
     register,
+    updateProfile,
     logout,
   }
 }

@@ -12,10 +12,9 @@ from src.categories.models import CategoryType
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     parent_id: uuid.UUID | None = None
-    icon: str | None = None
-    color: str | None = None
+    icon: str | None = Field(default=None, max_length=50)
+    color: str | None = Field(default=None, max_length=7)
     type: CategoryType
-    is_system: bool = False
 
 
 class CategoryUpdate(BaseModel):

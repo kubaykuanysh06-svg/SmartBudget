@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.categories.models import Category, CategoryType
 from src.categories.schemas import CategoryResponse, CategoryTree
-from src.core.exceptions import Forbidden, NotFound
+from src.core.exceptions import BadRequest, Forbidden, NotFound
 
 # ── Default categories seeded for new users ───────────────
 
@@ -64,7 +64,11 @@ async def get_category(
 async def create_category(
     db: AsyncSession, user_id: uuid.UUID, *, data: dict
 ) -> Category:
-    cat = Category(user_id=user_id, **data)
+    payload = {k: v for k, v in data.items() if k != "is_system"}
+    parent_id = payload.get("parent_id")
+    if parent_id is not None:
+        await get_category(db, parent_id, user_id)
+    cat = Category(user_id=user_id, is_system=False, **payload)
     db.add(cat)
     await db.flush()
     return cat
@@ -80,8 +84,15 @@ async def update_category(
     cat = await get_category(db, category_id, user_id)
     if cat.is_system:
         raise Forbidden("Cannot modify system categories")
+    if "parent_id" in data and data["parent_id"] is not None:
+        if data["parent_id"] == category_id:
+            raise BadRequest("Category cannot be its own parent")
+        await get_category(db, data["parent_id"], user_id)
+    nullable_fields = {"parent_id", "icon", "color"}
     for k, v in data.items():
-        if v is not None:
+        if k == "is_system":
+            continue
+        if v is not None or k in nullable_fields:
             setattr(cat, k, v)
     await db.flush()
     return cat

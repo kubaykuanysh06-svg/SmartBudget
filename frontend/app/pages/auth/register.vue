@@ -65,7 +65,7 @@ const handleRegister = async () => {
     })
     navigateTo('/')
   } catch (err: any) {
-    errorMsg.value = err?.data?.detail || 'Ошибка при регистрации'
+    errorMsg.value = formatApiError(err, 'Ошибка при регистрации')
   } finally {
     isLoading.value = false
   }

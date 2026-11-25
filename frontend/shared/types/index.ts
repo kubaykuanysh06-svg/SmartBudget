@@ -113,3 +113,10 @@ export interface AiInsight {
   is_read: boolean
   created_at: string
 }
+
+export interface PriceAnalysis {
+  verdict: 'good_deal' | 'fair' | 'overpriced'
+  estimated_fair_price?: number | null
+  savings_or_overpay?: number | null
+  explanation: string
+}

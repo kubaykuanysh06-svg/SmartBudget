@@ -10,7 +10,7 @@
         icon="i-heroicons-plus"
         color="emerald"
         label="Добавить операцию"
-        @click="isModalOpen = true"
+        @click="openModal"
       />
     </div>
 
@@ -49,14 +49,16 @@
         >
           <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
-              {{ categoryFor(item.category_id)?.icon || '💳' }}
+              {{ item.category?.icon || categoryFor(item.category_id)?.icon || (item.type === 'income' ? '💰' : '💳') }}
             </div>
             <div>
-              <p class="font-medium text-sm">{{ item.description }}</p>
+              <p class="font-medium text-sm">{{ item.description || 'Без описания' }}</p>
               <div class="flex items-center gap-2 mt-0.5">
                 <span class="text-xs text-gray-400">{{ item.merchant || 'Без магазина' }}</span>
                 <span class="text-xs text-gray-300 dark:text-gray-600">•</span>
-                <span class="text-xs text-emerald-600 font-medium">{{ categoryFor(item.category_id)?.name || 'Общая' }}</span>
+                <span class="text-xs text-emerald-600 font-medium">
+                  {{ item.category?.name || categoryFor(item.category_id)?.name || 'Общая' }}
+                </span>
               </div>
             </div>
           </div>
@@ -103,7 +105,7 @@
           </div>
           <div>
             <label class="block text-xs font-medium mb-1">Сумма ({{ currency }})</label>
-            <UInput v-model.number="newForm.amount" type="number" placeholder="1000" />
+            <UInput v-model="newForm.amount" type="number" step="0.01" min="0.01" placeholder="1000" />
           </div>
           <div>
             <label class="block text-xs font-medium mb-1">Описание / Товар</label>
@@ -111,13 +113,22 @@
           </div>
           <div>
             <label class="block text-xs font-medium mb-1">Магазин / Место</label>
-            <UInput v-model="newForm.merchant" placeholder="Пятёрочка, Ozon, ВкусВилл" />
+            <UInput v-model="newForm.merchant" placeholder="Magnum, Kaspi, Small" />
           </div>
           <div>
             <label class="block text-xs font-medium mb-1">Дата</label>
             <UInput v-model="newForm.transaction_date" type="date" />
           </div>
         </div>
+
+        <div
+          v-if="formError"
+          role="alert"
+          class="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg px-3 py-2"
+        >
+          {{ formError }}
+        </div>
+
         <div class="flex justify-end gap-2 pt-2">
           <UButton color="gray" variant="ghost" label="Отмена" @click="isModalOpen = false" />
           <UButton color="emerald" label="Сохранить" :loading="isSubmitting" @click="handleSubmit" />
@@ -131,11 +142,14 @@
 import dayjs from 'dayjs'
 import type { CategoryTree, TransactionType } from '~~/shared/types'
 
+const route = useRoute()
+const router = useRouter()
 const transactions = useTransactions()
 const api = useApi()
 const categoryTree = ref<CategoryTree[]>([])
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
+const formError = ref('')
 
 const searchQuery = ref('')
 const selectedType = ref('all')
@@ -144,12 +158,17 @@ const endDate = ref('')
 
 const newForm = ref({
   type: 'expense' as TransactionType,
-  amount: 0,
+  amount: '' as string | number,
   description: '',
   merchant: '',
   category_id: '',
   transaction_date: dayjs().format('YYYY-MM-DD'),
 })
+
+const openModal = () => {
+  formError.value = ''
+  isModalOpen.value = true
+}
 
 function flattenCategories(tree: CategoryTree[]): CategoryTree[] {
   return tree.flatMap(category => [category, ...flattenCategories(category.children)])
@@ -163,12 +182,20 @@ const categoryOptions = computed(() => [
 ])
 
 watch(() => newForm.value.type, () => { newForm.value.category_id = '' })
+watch(() => route.query.action, (action) => {
+  if (action === 'new') {
+    openModal()
+    router.replace({ query: { ...route.query, action: undefined } })
+  }
+}, { immediate: true })
 
 const categoryFor = (id: string | null) => categories.value.find(category => category.id === id)
 
 const filteredTransactions = computed(() => {
   return transactions.transactions.value.filter((t) => {
     if (selectedType.value !== 'all' && t.type !== selectedType.value) return false
+    if (startDate.value && t.transaction_date < startDate.value) return false
+    if (endDate.value && t.transaction_date > endDate.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
       const desc = (t.description || '').toLowerCase()
@@ -188,25 +215,52 @@ const handleDelete = async (id: string) => {
 }
 
 const handleSubmit = async () => {
-  if (!newForm.value.amount || !newForm.value.description) return
+  formError.value = ''
+  const moneyErr = validateMoneyInput(newForm.value.amount)
+  if (moneyErr) {
+    formError.value = moneyErr
+    return
+  }
+  if (!newForm.value.description.trim()) {
+    formError.value = 'Введите описание операции'
+    return
+  }
+  if (!newForm.value.transaction_date) {
+    formError.value = 'Укажите дату операции'
+    return
+  }
+
   isSubmitting.value = true
   try {
     await transactions.createTransaction({
-      ...newForm.value,
+      type: newForm.value.type,
+      amount: Number(String(newForm.value.amount).replace(',', '.')),
+      description: newForm.value.description.trim(),
+      merchant: newForm.value.merchant.trim() || null,
       category_id: newForm.value.category_id || null,
+      transaction_date: newForm.value.transaction_date,
     })
     isModalOpen.value = false
-    newForm.value.amount = 0
+    newForm.value.amount = ''
     newForm.value.description = ''
     newForm.value.merchant = ''
+  } catch (err: any) {
+    formError.value = formatApiError(err, 'Не удалось сохранить операцию')
   } finally {
     isSubmitting.value = false
   }
 }
 
+watch([startDate, endDate], () => {
+  const params: Record<string, any> = { per_page: 100 }
+  if (startDate.value) params.date_from = startDate.value
+  if (endDate.value) params.date_to = endDate.value
+  transactions.fetchTransactions(params)
+})
+
 onMounted(async () => {
   const [, categoryResult] = await Promise.allSettled([
-    transactions.fetchTransactions(),
+    transactions.fetchTransactions({ per_page: 100 }),
     api.fetch<CategoryTree[]>('/categories/tree'),
   ])
   if (categoryResult.status === 'fulfilled') categoryTree.value = categoryResult.value

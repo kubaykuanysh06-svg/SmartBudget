@@ -30,9 +30,13 @@ from src.core.config import settings
 # ── Gemini client helper ──────────────────────────────────
 
 
+_PLACEHOLDER_GEMINI_KEYS = {"", "your-gemini-api-key", "change-me"}
+
+
 async def _call_gemini(prompt: str) -> str:
     """Call the Gemini API and return the text response."""
-    if not settings.GEMINI_API_KEY.strip():
+    api_key = settings.GEMINI_API_KEY.strip()
+    if api_key in _PLACEHOLDER_GEMINI_KEYS:
         raise HTTPException(status_code=503, detail="Gemini API key is not configured")
 
     try:

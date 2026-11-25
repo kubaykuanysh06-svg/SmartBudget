@@ -8,7 +8,10 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from src.categories.schemas import CategoryResponse
 from src.transactions.models import Frequency, TransactionType
+
+MAX_AMOUNT = Decimal("999999999999.99")
 
 
 # ── Transaction ───────────────────────────────────────────
@@ -16,7 +19,7 @@ from src.transactions.models import Frequency, TransactionType
 
 class TransactionCreate(BaseModel):
     category_id: uuid.UUID | None = None
-    amount: Decimal = Field(gt=0)
+    amount: Decimal = Field(gt=0, le=MAX_AMOUNT, decimal_places=2, allow_inf_nan=False)
     type: TransactionType
     description: str | None = None
     merchant: str | None = None
@@ -27,7 +30,9 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     category_id: uuid.UUID | None = None
-    amount: Decimal | None = Field(default=None, gt=0)
+    amount: Decimal | None = Field(
+        default=None, gt=0, le=MAX_AMOUNT, decimal_places=2, allow_inf_nan=False
+    )
     type: TransactionType | None = None
     description: str | None = None
     merchant: str | None = None
@@ -40,6 +45,7 @@ class TransactionResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     category_id: uuid.UUID | None = None
+    category: CategoryResponse | None = None
     amount: Decimal
     type: TransactionType
     description: str | None = None
@@ -73,7 +79,7 @@ class PaginatedTransactions(BaseModel):
 
 class RecurringTransactionCreate(BaseModel):
     category_id: uuid.UUID | None = None
-    amount: Decimal = Field(gt=0)
+    amount: Decimal = Field(gt=0, le=MAX_AMOUNT, decimal_places=2, allow_inf_nan=False)
     type: TransactionType = TransactionType.expense
     description: str | None = None
     frequency: Frequency

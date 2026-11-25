@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.transactions.models import Transaction, TransactionType
 
@@ -16,6 +17,7 @@ async def create(db: AsyncSession, *, user_id: uuid.UUID, data: dict) -> Transac
     txn = Transaction(user_id=user_id, **data)
     db.add(txn)
     await db.flush()
+    await db.refresh(txn, attribute_names=["category"])
     return txn
 
 
@@ -23,9 +25,9 @@ async def get_by_id(
     db: AsyncSession, txn_id: uuid.UUID, user_id: uuid.UUID
 ) -> Transaction | None:
     result = await db.execute(
-        select(Transaction).where(
-            Transaction.id == txn_id, Transaction.user_id == user_id
-        )
+        select(Transaction)
+        .options(selectinload(Transaction.category))
+        .where(Transaction.id == txn_id, Transaction.user_id == user_id)
     )
     return result.scalar_one_or_none()
 
@@ -33,10 +35,12 @@ async def get_by_id(
 async def update(
     db: AsyncSession, txn: Transaction, data: dict
 ) -> Transaction:
+    nullable_fields = {"category_id", "description", "merchant", "tags", "receipt_url"}
     for k, v in data.items():
-        if v is not None:
+        if v is not None or k in nullable_fields:
             setattr(txn, k, v)
     await db.flush()
+    await db.refresh(txn, attribute_names=["category"])
     return txn
 
 
@@ -57,7 +61,11 @@ async def list_filtered(
     page: int = 1,
     per_page: int = 20,
 ) -> tuple[list[Transaction], int]:
-    stmt = select(Transaction).where(Transaction.user_id == user_id)
+    stmt = (
+        select(Transaction)
+        .options(selectinload(Transaction.category))
+        .where(Transaction.user_id == user_id)
+    )
     count_stmt = select(func.count(Transaction.id)).where(
         Transaction.user_id == user_id
     )
@@ -141,22 +149,25 @@ async def monthly_totals(
     *,
     months: int = 12,
 ) -> list[tuple[str, Decimal]]:
-    """Return (YYYY-MM, total) for the last N months."""
+    """Return (YYYY-MM, total) for the most recent N months in ascending order."""
+    month_col = func.to_char(Transaction.transaction_date, "YYYY-MM").label("month")
     stmt = (
         select(
-            func.to_char(Transaction.transaction_date, "YYYY-MM").label("month"),
+            month_col,
             func.sum(Transaction.amount),
         )
         .where(
             Transaction.user_id == user_id,
             Transaction.type == txn_type,
         )
-        .group_by("month")
-        .order_by("month")
+        .group_by(month_col)
+        .order_by(month_col.desc())
         .limit(months)
     )
     result = await db.execute(stmt)
-    return [(row[0], Decimal(str(row[1]))) for row in result.all()]
+    rows = [(row[0], Decimal(str(row[1]))) for row in result.all()]
+    rows.reverse()
+    return rows
 
 
 async def spending_by_category_in_range(

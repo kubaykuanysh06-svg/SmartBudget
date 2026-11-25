@@ -1,58 +1,58 @@
 <template>
   <div class="space-y-6">
     <!-- Stat Cards Overview -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <UCard>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <p class="text-sm text-gray-500 font-medium">Баланс за месяц</p>
-            <p class="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+            <p class="text-xl xl:text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400 truncate">
               {{ formatCurrency(summary.net) }}
             </p>
           </div>
-          <div class="p-3 bg-emerald-100 dark:bg-emerald-950/60 rounded-xl text-emerald-600">
+          <div class="p-3 shrink-0 bg-emerald-100 dark:bg-emerald-950/60 rounded-xl text-emerald-600">
             <UIcon name="i-heroicons-scale" class="w-6 h-6" />
           </div>
         </div>
       </UCard>
 
       <UCard>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <p class="text-sm text-gray-500 font-medium">Доходы</p>
-            <p class="text-2xl font-bold mt-1 text-green-600">
+            <p class="text-xl xl:text-2xl font-bold mt-1 text-green-600 truncate">
               +{{ formatCurrency(summary.total_income) }}
             </p>
           </div>
-          <div class="p-3 bg-green-100 dark:bg-green-950/60 rounded-xl text-green-600">
+          <div class="p-3 shrink-0 bg-green-100 dark:bg-green-950/60 rounded-xl text-green-600">
             <UIcon name="i-heroicons-arrow-trending-up" class="w-6 h-6" />
           </div>
         </div>
       </UCard>
 
       <UCard>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <p class="text-sm text-gray-500 font-medium">Расходы</p>
-            <p class="text-2xl font-bold mt-1 text-rose-600">
+            <p class="text-xl xl:text-2xl font-bold mt-1 text-rose-600 truncate">
               -{{ formatCurrency(summary.total_expense) }}
             </p>
           </div>
-          <div class="p-3 bg-rose-100 dark:bg-rose-950/60 rounded-xl text-rose-600">
+          <div class="p-3 shrink-0 bg-rose-100 dark:bg-rose-950/60 rounded-xl text-rose-600">
             <UIcon name="i-heroicons-arrow-trending-down" class="w-6 h-6" />
           </div>
         </div>
       </UCard>
 
       <UCard>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <p class="text-sm text-gray-500 font-medium">Норма сбережений</p>
-            <p class="text-2xl font-bold mt-1 text-teal-600">
+            <p class="text-xl xl:text-2xl font-bold mt-1 text-teal-600 truncate">
               {{ savingsRate.toFixed(1) }}%
             </p>
           </div>
-          <div class="p-3 bg-teal-100 dark:bg-teal-950/60 rounded-xl text-teal-600">
+          <div class="p-3 shrink-0 bg-teal-100 dark:bg-teal-950/60 rounded-xl text-teal-600">
             <UIcon name="i-heroicons-banknotes" class="w-6 h-6" />
           </div>
         </div>
@@ -112,10 +112,10 @@
             >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
-                  {{ item.category?.icon || '🛒' }}
+                  {{ item.category?.icon || (item.type === 'income' ? '💰' : '🛒') }}
                 </div>
                 <div>
-                  <p class="font-medium text-sm">{{ item.description }}</p>
+                  <p class="font-medium text-sm">{{ item.description || 'Без описания' }}</p>
                   <p class="text-xs text-gray-400">{{ item.merchant || item.category?.name || 'Без категории' }}</p>
                 </div>
               </div>

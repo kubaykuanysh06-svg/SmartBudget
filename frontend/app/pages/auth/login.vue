@@ -54,7 +54,7 @@ const handleLogin = async () => {
     await auth.login({ email: email.value, password: password.value })
     navigateTo('/')
   } catch (err: any) {
-    errorMsg.value = err?.data?.detail || 'Неверный email или пароль'
+    errorMsg.value = formatApiError(err, 'Неверный email или пароль')
   } finally {
     isLoading.value = false
   }

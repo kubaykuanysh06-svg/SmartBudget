@@ -1,4 +1,4 @@
-import type { AiInsight } from '~~/shared/types'
+import type { AiInsight, PriceAnalysis } from '~~/shared/types'
 
 export const useAiInsights = () => {
   const api = useApi()
@@ -23,8 +23,8 @@ export const useAiInsights = () => {
     })
   }
 
-  const analyzePrice = async (item: { product_name: string; price: number; category?: string }) => {
-    return await api.fetch<{ is_good_price: boolean; advice: string; alternative_deals?: any[] }>('/ai/analyze-price', {
+  const analyzePrice = async (item: { description: string; merchant?: string; amount: number }) => {
+    return await api.fetch<PriceAnalysis>('/ai/analyze-price', {
       method: 'POST',
       body: item,
     })

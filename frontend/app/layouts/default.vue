@@ -58,7 +58,9 @@
       <header class="h-16 border-b border-gray-200 dark:border-gray-800 px-6 flex items-center justify-between bg-white dark:bg-gray-900">
         <h1 class="text-lg font-semibold">{{ currentTitle }}</h1>
         <div class="flex items-center gap-3">
-          <UColorModeButton />
+          <ClientOnly>
+            <UColorModeButton />
+          </ClientOnly>
           <UButton
             icon="i-heroicons-plus"
             label="Новая покупка"

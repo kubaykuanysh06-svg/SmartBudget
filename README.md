@@ -116,3 +116,12 @@ docker compose ps
    Обновите страницу и убедитесь, что обе операции сохранились.
 4. На вкладке «Бюджеты» создайте общий лимит 20 000 ₸. Расход 8 000 ₸
    составляет 40% лимита. В «Аналитике» этот расход отобразится в выбранной категории.
+
+## Автотесты и проверка миграций
+
+Для запуска миграций (up/down/up + `alembic check`) и интеграционных тестов API на изолированной временной базе PostgreSQL (без затрагивания рабочих данных):
+
+```powershell
+docker compose -p smartbudget_test -f docker-compose.test.yml run --rm --build tests
+docker compose -p smartbudget_test -f docker-compose.test.yml down -v
+```

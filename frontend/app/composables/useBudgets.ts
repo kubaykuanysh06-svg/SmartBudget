@@ -16,7 +16,7 @@ export const useBudgets = () => {
     }
   }
 
-  const createBudget = async (payload: { category_id?: string; limit_amount: number; period: string; start_date: string }) => {
+  const createBudget = async (payload: { category_id?: string | null; limit_amount: number; period: string; start_date: string }) => {
     const data = await api.fetch<Budget>('/budgets', {
       method: 'POST',
       body: payload,
@@ -25,10 +25,16 @@ export const useBudgets = () => {
     return data
   }
 
+  const deleteBudget = async (id: string) => {
+    await api.fetch(`/budgets/${id}`, { method: 'DELETE' })
+    budgets.value = budgets.value.filter(b => b.id !== id)
+  }
+
   return {
     budgets,
     loading,
     fetchBudgets,
     createBudget,
+    deleteBudget,
   }
 }

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import User
 from src.categories.services import seed_default_categories
-from src.core.exceptions import BadRequest, NotFound
+from src.core.exceptions import BadRequest
 from src.core.security import hash_password, verify_password
 
 
@@ -42,6 +42,18 @@ async def register(
 
 async def authenticate(db: AsyncSession, *, email: str, password: str) -> User:
     user = await get_user_by_email(db, email)
-    if not user or not verify_password(password, user.hashed_password):
+    if (
+        not user
+        or len(password.encode("utf-8")) > 72
+        or not verify_password(password, user.hashed_password)
+    ):
         raise BadRequest("Invalid email or password")
+    return user
+
+
+async def update_user(db: AsyncSession, user: User, data: dict) -> User:
+    for k, v in data.items():
+        if v is not None:
+            setattr(user, k, v)
+    await db.flush()
     return user

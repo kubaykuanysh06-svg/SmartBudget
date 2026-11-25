@@ -50,3 +50,12 @@ async def update_budget(
     return await services.update_budget(
         db, budget_id, current_user.id, body.model_dump(exclude_unset=True)
     )
+
+
+@router.delete("/{budget_id}", status_code=204)
+async def delete_budget(
+    budget_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await services.delete_budget(db, budget_id, current_user.id)

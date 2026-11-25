@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.budgets.models import Budget, BudgetPeriod
 from src.budgets.schemas import BudgetStatus
+from src.categories.services import get_category
 from src.core.exceptions import NotFound
 from src.transactions.repositories import spending_by_category_in_range
 
@@ -43,7 +44,10 @@ async def list_budgets(
     db: AsyncSession, user_id: uuid.UUID
 ) -> list[Budget]:
     result = await db.execute(
-        select(Budget).where(Budget.user_id == user_id).order_by(Budget.start_date)
+        select(Budget)
+        .options(selectinload(Budget.category))
+        .where(Budget.user_id == user_id)
+        .order_by(Budget.start_date)
     )
     return list(result.scalars().all())
 
@@ -52,7 +56,9 @@ async def get_budget(
     db: AsyncSession, budget_id: uuid.UUID, user_id: uuid.UUID
 ) -> Budget:
     result = await db.execute(
-        select(Budget).where(Budget.id == budget_id, Budget.user_id == user_id)
+        select(Budget)
+        .options(selectinload(Budget.category))
+        .where(Budget.id == budget_id, Budget.user_id == user_id)
     )
     budget = result.scalar_one_or_none()
     if not budget:
@@ -63,9 +69,12 @@ async def get_budget(
 async def create_budget(
     db: AsyncSession, user_id: uuid.UUID, data: dict
 ) -> Budget:
+    if data.get("category_id") is not None:
+        await get_category(db, data["category_id"], user_id)
     budget = Budget(user_id=user_id, **data)
     db.add(budget)
     await db.flush()
+    await db.refresh(budget, attribute_names=["category"])
     return budget
 
 
@@ -73,11 +82,23 @@ async def update_budget(
     db: AsyncSession, budget_id: uuid.UUID, user_id: uuid.UUID, data: dict
 ) -> Budget:
     budget = await get_budget(db, budget_id, user_id)
+    if "category_id" in data and data["category_id"] is not None:
+        await get_category(db, data["category_id"], user_id)
+    nullable_fields = {"category_id", "end_date"}
     for k, v in data.items():
-        if v is not None:
+        if v is not None or k in nullable_fields:
             setattr(budget, k, v)
     await db.flush()
+    await db.refresh(budget, attribute_names=["category"])
     return budget
+
+
+async def delete_budget(
+    db: AsyncSession, budget_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    budget = await get_budget(db, budget_id, user_id)
+    await db.delete(budget)
+    await db.flush()
 
 
 # ── Status calculation ────────────────────────────────────

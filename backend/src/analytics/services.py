@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -90,7 +90,7 @@ async def trends(
 
     income_map = dict(income_rows)
     expense_map = dict(expense_rows)
-    all_months = sorted(set(income_map) | set(expense_map))
+    all_months = sorted(set(income_map) | set(expense_map))[-months:]
 
     return [
         TrendPoint(

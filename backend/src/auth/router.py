@@ -54,3 +54,14 @@ async def refresh(body: schemas.RefreshRequest):
 @router.get("/me", response_model=schemas.UserResponse)
 async def me(current_user=Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=schemas.UserResponse)
+async def update_me(
+    body: schemas.UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return await services.update_user(
+        db, current_user, body.model_dump(exclude_unset=True)
+    )

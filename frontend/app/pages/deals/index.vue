@@ -22,19 +22,21 @@
           <h3 class="font-bold text-base">ИИ-проверка цены перед покупкой</h3>
         </div>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          Введите название товара и стоимость, а наш ИИ проанализирует, хорошая ли это цена и где найти дешевле:
+          Введите название товара и стоимость, а наш ИИ проанализирует, насколько выгодна эта цена:
         </p>
         <div class="flex flex-col sm:flex-row gap-3">
           <UInput
             v-model="productToCheck"
             class="flex-1"
-            placeholder="Например: Наушники Sony WH-1000XM5 или Кофе в зернах Lavazza"
+            placeholder="Например: Наушники Sony WH-1000XM5 или Кофе Lavazza 1 кг"
           />
           <UInput
-            v-model.number="priceToCheck"
+            v-model="priceToCheck"
             type="number"
-            class="w-full sm:w-36"
-            placeholder="Цена (₽)"
+            step="0.01"
+            min="0.01"
+            class="w-full sm:w-44"
+            :placeholder="`Цена (${currency})`"
           />
           <UButton
             color="emerald"
@@ -44,12 +46,29 @@
           />
         </div>
 
+        <div
+          v-if="analysisError"
+          role="alert"
+          class="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2"
+        >
+          {{ analysisError }}
+        </div>
+
         <div v-if="analysisResult" class="mt-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-emerald-100 dark:border-emerald-950">
-          <div class="flex items-center gap-2 font-semibold" :class="analysisResult.is_good_price ? 'text-green-600' : 'text-amber-600'">
-            <UIcon :name="analysisResult.is_good_price ? 'i-heroicons-check-circle' : 'i-heroicons-exclamation-triangle'" class="w-5 h-5" />
-            <span>{{ analysisResult.is_good_price ? 'Выгодная цена!' : 'Возможно, есть варианты дешевле' }}</span>
+          <div
+            class="flex items-center gap-2 font-semibold"
+            :class="analysisResult.verdict === 'overpriced' ? 'text-amber-600' : 'text-green-600'"
+          >
+            <UIcon
+              :name="analysisResult.verdict === 'overpriced' ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-check-circle'"
+              class="w-5 h-5"
+            />
+            <span>{{ verdictTitle(analysisResult.verdict) }}</span>
           </div>
-          <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ analysisResult.advice }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ analysisResult.explanation }}</p>
+          <p v-if="analysisResult.estimated_fair_price != null" class="text-xs text-gray-500 mt-2">
+            Ориентировочная справедливая цена: {{ formatCurrency(analysisResult.estimated_fair_price) }}
+          </p>
         </div>
       </div>
     </UCard>
@@ -104,30 +123,49 @@
 </template>
 
 <script setup lang="ts">
+import type { PriceAnalysis } from '~~/shared/types'
+
 const deals = useDeals()
 const ai = useAiInsights()
 
 const productToCheck = ref('')
-const priceToCheck = ref<number>()
+const priceToCheck = ref<string | number>('')
 const isAnalyzing = ref(false)
-const analysisResult = ref<{ is_good_price: boolean; advice: string } | null>(null)
+const analysisError = ref('')
+const analysisResult = ref<PriceAnalysis | null>(null)
 
-const { formatCurrency } = useCurrencyFormat()
+const { currency, formatCurrency } = useCurrencyFormat()
+
+const verdictTitle = (verdict: PriceAnalysis['verdict']) => {
+  if (verdict === 'good_deal') return 'Выгодная цена!'
+  if (verdict === 'overpriced') return 'Цена выше рыночной'
+  return 'Рыночная цена'
+}
 
 const handleCheckPrice = async () => {
-  if (!productToCheck.value || !priceToCheck.value) return
+  analysisError.value = ''
+  analysisResult.value = null
+  if (!productToCheck.value.trim()) {
+    analysisError.value = 'Введите название товара для проверки'
+    return
+  }
+  const moneyErr = validateMoneyInput(priceToCheck.value)
+  if (moneyErr) {
+    analysisError.value = moneyErr
+    return
+  }
+
   isAnalyzing.value = true
   try {
-    const res = await ai.analyzePrice({
-      product_name: productToCheck.value,
-      price: priceToCheck.value,
+    analysisResult.value = await ai.analyzePrice({
+      description: productToCheck.value.trim(),
+      amount: Number(String(priceToCheck.value).replace(',', '.')),
     })
-    analysisResult.value = res
-  } catch {
-    analysisResult.value = {
-      is_good_price: true,
-      advice: 'Средняя рыночная цена находится в диапазоне этой суммы. Рекомендуем проверить наличие промокодов на маркетах.',
-    }
+  } catch (err: any) {
+    const status = getErrorStatus(err)
+    analysisError.value = status === 503
+      ? 'Для ИИ-проверки цены задайте действительный GEMINI_API_KEY в backend/.env.'
+      : formatApiError(err, 'Не удалось получить оценку цены от Gemini.')
   } finally {
     isAnalyzing.value = false
   }

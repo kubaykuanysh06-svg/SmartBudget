@@ -1,0 +1,41 @@
+# Disposable test stack. It uses its own Compose project, database and ports,
+# so it never touches the data of the main stack.
+#
+#   docker compose -p smartbudget_test -f docker-compose.test.yml run --rm --build tests
+#   docker compose -p smartbudget_test -f docker-compose.test.yml down -v
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smartbudget
+      POSTGRES_PASSWORD: smartbudget
+      POSTGRES_DB: smartbudget_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartbudget -d smartbudget_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  tests:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smartbudget:smartbudget@postgres-test:5432/smartbudget_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-only-secret-key-not-for-production
+      GEMINI_API_KEY: ""
+      DEBUG: "false"
+    # Check the migration on an empty database (up, down, up again) and that it
+    # matches the models, then run the API tests.
+    command:
+      - sh
+      - -c
+      - >-
+        alembic upgrade head && alembic downgrade base && alembic upgrade head &&
+        alembic check && pytest -q -p no:cacheprovider
+    depends_on:
+      postgres-test:
+        condition: service_healthy

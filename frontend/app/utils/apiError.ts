@@ -8,6 +8,15 @@ export function formatApiError(err: any, fallback = 'Сұранысты орын
     if (detail === 'Email already registered') return 'Бұл email мекенжайы бұрын тіркелген'
     if (detail === 'Invalid email or password') return 'Email немесе құпиясөз қате'
     if (detail === 'Category not found') return 'Таңдалған санат табылмады'
+    if (detail === 'Category type does not match transaction type') {
+      return 'Санат түрі операция түріне сәйкес келмейді (кіріс не шығыс)'
+    }
+    if (detail === 'Budget category must be an expense category') {
+      return 'Бюджет тек шығыс санатына қойылады'
+    }
+    if (detail === 'end_date must be on or after start_date') {
+      return 'Аяқталу күні басталу күнінен ерте болмауы керек'
+    }
     if (detail === 'Gemini API key is not configured') {
       return 'ЖИ қызметі үшін backend/.env файлына жарамды GEMINI_API_KEY енгізіңіз'
     }

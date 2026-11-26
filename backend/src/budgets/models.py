@@ -7,7 +7,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Numeric
+from sqlalchemy import Boolean, CheckConstraint, Date, Enum, ForeignKey, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,6 +22,7 @@ class BudgetPeriod(str, enum.Enum):
 
 class Budget(Base):
     __tablename__ = "budgets"
+    __table_args__ = (CheckConstraint("limit_amount > 0", name="limit_amount_positive"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

@@ -23,16 +23,29 @@ from src.transactions.schemas import (
 
 
 async def _ensure_user_category(
-    db: AsyncSession, category_id: uuid.UUID | None, user_id: uuid.UUID
+    db: AsyncSession,
+    category_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+    txn_type: TransactionType | None = None,
 ) -> None:
-    if category_id is not None:
-        await get_category(db, category_id, user_id)
+    """Category must belong to the user and, for income/expense, match the type.
+
+    An income booked under an expense category (or the reverse) would be left
+    out of the category breakdown and of category budgets, so it is rejected.
+    """
+    if category_id is None:
+        return
+    category = await get_category(db, category_id, user_id)
+    if txn_type in (TransactionType.income, TransactionType.expense) and (
+        category.type.value != txn_type.value
+    ):
+        raise BadRequest("Category type does not match transaction type")
 
 
 async def create_transaction(
     db: AsyncSession, user_id: uuid.UUID, data: dict
 ) -> TransactionResponse:
-    await _ensure_user_category(db, data.get("category_id"), user_id)
+    await _ensure_user_category(db, data.get("category_id"), user_id, data["type"])
     txn = await repo.create(db, user_id=user_id, data=data)
     return TransactionResponse.model_validate(txn)
 
@@ -52,8 +65,9 @@ async def update_transaction(
     txn = await repo.get_by_id(db, txn_id, user_id)
     if not txn:
         raise NotFound("Transaction not found")
-    if "category_id" in data:
-        await _ensure_user_category(db, data.get("category_id"), user_id)
+    if "category_id" in data or data.get("type") is not None:
+        category_id = data["category_id"] if "category_id" in data else txn.category_id
+        await _ensure_user_category(db, category_id, user_id, data.get("type") or txn.type)
     updated = await repo.update(db, txn, data)
     return TransactionResponse.model_validate(updated)
 

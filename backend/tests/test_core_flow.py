@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -319,3 +319,86 @@ async def test_category_objects_embedded_and_profile_patch(client):
     assert patched.status_code == 200
     assert patched.json()["name"] == "Rich Updated"
     assert patched.json()["currency"] == "USD"
+
+
+async def test_budget_counts_only_inside_its_dates(client):
+    acc = await register_and_login(client, "Dates")
+    h = acc["headers"]
+    today = date.today()
+    res = await client.post(
+        "/api/transactions", headers=h,
+        json={"amount": 8000, "type": "expense", "description": "x",
+              "transaction_date": today.isoformat()},
+    )
+    assert res.status_code == 201
+    first_of_month = today.replace(day=1)
+    next_month = (first_of_month + timedelta(days=32)).replace(day=1)
+    ended = first_of_month - timedelta(days=1)
+    for body in (
+        {"start_date": next_month.isoformat()},  # not started yet
+        {"start_date": ended.replace(day=1).isoformat(), "end_date": ended.isoformat()},  # ended
+        {"start_date": today.isoformat()},  # current
+    ):
+        r = await client.post(
+            "/api/budgets", headers=h,
+            json={"limit_amount": 20000, "period": "monthly", **body},
+        )
+        assert r.status_code == 201, r.text
+    spent = {
+        b["start_date"]: Decimal(b["spent"])
+        for b in (await client.get("/api/budgets/status", headers=h)).json()
+    }
+    assert spent[next_month.isoformat()] == 0
+    assert spent[ended.replace(day=1).isoformat()] == 0
+    assert spent[today.isoformat()] == Decimal("8000")
+
+
+async def test_category_type_must_match_transaction_type(client, db):
+    acc = await register_and_login(client, "Types")
+    h = acc["headers"]
+    today = date.today().isoformat()
+    groceries = await category_id(client, h, "Groceries")
+    salary = await category_id(client, h, "Salary")
+
+    wrong = await client.post(
+        "/api/transactions", headers=h,
+        json={"amount": 5000, "type": "income", "category_id": groceries,
+              "description": "wrong", "transaction_date": today},
+    )
+    assert wrong.status_code == 400, wrong.text
+    assert await _count_txns(db, acc["user"]["id"]) == 0
+
+    ok = await client.post(
+        "/api/transactions", headers=h,
+        json={"amount": 5000, "type": "expense", "category_id": groceries,
+              "description": "ok", "transaction_date": today},
+    )
+    assert ok.status_code == 201
+    txn_id = ok.json()["id"]
+    # Flipping only the type would leave an expense category on an income.
+    flip = await client.put(f"/api/transactions/{txn_id}", headers=h, json={"type": "income"})
+    assert flip.status_code == 400
+    both = await client.put(
+        f"/api/transactions/{txn_id}", headers=h,
+        json={"type": "income", "category_id": salary},
+    )
+    assert both.status_code == 200, both.text
+
+    income_budget = await client.post(
+        "/api/budgets", headers=h,
+        json={"limit_amount": 1000, "period": "monthly", "start_date": today,
+              "category_id": salary},
+    )
+    assert income_budget.status_code == 400
+
+
+async def test_database_rejects_non_positive_amount(db):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        await db.execute(text(
+            "INSERT INTO transactions (id, user_id, amount, type, transaction_date, created_at) "
+            "SELECT gen_random_uuid(), id, -1, 'expense', current_date, now() FROM users LIMIT 1"
+        ))
+    await db.rollback()

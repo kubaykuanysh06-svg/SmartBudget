@@ -1,10 +1,7 @@
 import type { AiInsight, BudgetStatus, Deal, Transaction, User } from '~~/shared/types'
 
 export const useAuth = () => {
-  const token = useCookie<string | null>('auth_token', {
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    sameSite: 'lax',
-  })
+  const { token, refreshToken } = useAuthCookies()
   const user = useState<User | null>('auth_user', () => null)
   const txnsState = useState<Transaction[]>('transactions', () => [])
   const budgetsState = useState<BudgetStatus[]>('budgets_status', () => [])
@@ -34,6 +31,7 @@ export const useAuth = () => {
       return data
     } catch {
       token.value = null
+      refreshToken.value = null
       user.value = null
       clearCachedUserData()
       return null
@@ -47,6 +45,7 @@ export const useAuth = () => {
       body: credentials,
     })
     token.value = data.access_token
+    refreshToken.value = data.refresh_token
     await fetchUser()
     return data
   }
@@ -73,6 +72,7 @@ export const useAuth = () => {
 
   const logout = () => {
     token.value = null
+    refreshToken.value = null
     user.value = null
     clearCachedUserData()
     navigateTo('/auth/login')

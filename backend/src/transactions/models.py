@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -38,6 +39,7 @@ class Frequency(str, enum.Enum):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (CheckConstraint("amount > 0", name="amount_positive"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -73,6 +75,7 @@ class Transaction(Base):
 
 class RecurringTransaction(Base):
     __tablename__ = "recurring_transactions"
+    __table_args__ = (CheckConstraint("amount > 0", name="amount_positive"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

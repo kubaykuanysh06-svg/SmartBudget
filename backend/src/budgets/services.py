@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,8 +12,9 @@ from sqlalchemy.orm import selectinload
 
 from src.budgets.models import Budget, BudgetPeriod
 from src.budgets.schemas import BudgetStatus
+from src.categories.models import CategoryType
 from src.categories.services import get_category
-from src.core.exceptions import NotFound
+from src.core.exceptions import BadRequest, NotFound
 from src.transactions.repositories import spending_by_category_in_range
 
 
@@ -66,11 +68,20 @@ async def get_budget(
     return budget
 
 
+async def _ensure_expense_category(
+    db: AsyncSession, category_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    # Budgets track spending; an income category would always show 0 spent.
+    category = await get_category(db, category_id, user_id)
+    if category.type != CategoryType.expense:
+        raise BadRequest("Budget category must be an expense category")
+
+
 async def create_budget(
     db: AsyncSession, user_id: uuid.UUID, data: dict
 ) -> Budget:
     if data.get("category_id") is not None:
-        await get_category(db, data["category_id"], user_id)
+        await _ensure_expense_category(db, data["category_id"], user_id)
     budget = Budget(user_id=user_id, **data)
     db.add(budget)
     await db.flush()
@@ -83,11 +94,13 @@ async def update_budget(
 ) -> Budget:
     budget = await get_budget(db, budget_id, user_id)
     if "category_id" in data and data["category_id"] is not None:
-        await get_category(db, data["category_id"], user_id)
+        await _ensure_expense_category(db, data["category_id"], user_id)
     nullable_fields = {"category_id", "end_date"}
     for k, v in data.items():
         if v is not None or k in nullable_fields:
             setattr(budget, k, v)
+    if budget.end_date is not None and budget.end_date < budget.start_date:
+        raise BadRequest("end_date must be on or after start_date")
     await db.flush()
     await db.refresh(budget, attribute_names=["category"])
     return budget
@@ -109,8 +122,15 @@ async def calculate_status(
 ) -> BudgetStatus:
     """Calculate how much has been spent vs. the budget limit."""
     period_start, period_end = _current_period_range(budget)
+    # A budget only covers its own dates: one that has not started yet or has
+    # already ended has spent nothing in the current period.
+    if budget.end_date is not None and budget.end_date < period_end:
+        period_end = budget.end_date
+    in_effect = budget.start_date <= period_end and period_start <= period_end
 
-    if budget.category_id:
+    if not in_effect:
+        spent = Decimal("0")
+    elif budget.category_id:
         spent = await spending_by_category_in_range(
             db, budget.user_id, budget.category_id, period_start, period_end
         )

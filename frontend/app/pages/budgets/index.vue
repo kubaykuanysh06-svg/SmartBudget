@@ -187,7 +187,7 @@ const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 const formError = ref('')
 const newCategoryId = ref('')
-const newLimit = ref<string | number>(20000)
+const newLimit = ref<string | number>('')
 const newPeriod = ref('monthly')
 
 const { currency, formatCurrency } = useCurrencyFormat()
@@ -258,6 +258,8 @@ const handleCreate = async () => {
       start_date: dayjs().format('YYYY-MM-DD'),
     })
     isModalOpen.value = false
+    newLimit.value = ''
+    newCategoryId.value = ''
   } catch (err: any) {
     formError.value = formatApiError(err, 'Бюджетті құру мүмкін болмады')
   } finally {

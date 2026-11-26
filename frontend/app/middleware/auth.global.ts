@@ -1,4 +1,5 @@
 export default defineNuxtRouteMiddleware(async (to) => {
+  const nuxtApp = useNuxtApp()
   const publicPaths = ['/auth/login', '/auth/register']
   const isPublic = publicPaths.includes(to.path)
   const auth = useAuth()
@@ -14,13 +15,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const profile = await auth.fetchUser()
     if (!profile) {
       if (!isPublic) {
-        return navigateTo('/auth/login')
+        return nuxtApp.runWithContext(() => navigateTo('/auth/login'))
       }
       return
     }
   }
 
   if (isPublic) {
-    return navigateTo('/')
+    return nuxtApp.runWithContext(() => navigateTo('/'))
   }
 })

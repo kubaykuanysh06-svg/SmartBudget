@@ -6,16 +6,21 @@ export const useAuth = () => {
     sameSite: 'lax',
   })
   const user = useState<User | null>('auth_user', () => null)
+  const txnsState = useState<Transaction[]>('transactions', () => [])
+  const budgetsState = useState<BudgetStatus[]>('budgets_status', () => [])
+  const insightsState = useState<AiInsight[]>('ai_insights', () => [])
+  const dealsState = useState<Deal[]>('deals_list', () => [])
+  const personalizedDealsState = useState<Deal[]>('deals_personalized', () => [])
   const api = useApi(token)
 
   const isAuthenticated = computed(() => !!token.value)
 
   const clearCachedUserData = () => {
-    useState<Transaction[]>('transactions', () => []).value = []
-    useState<BudgetStatus[]>('budgets_status', () => []).value = []
-    useState<AiInsight[]>('ai_insights', () => []).value = []
-    useState<Deal[]>('deals_list', () => []).value = []
-    useState<Deal[]>('deals_personalized', () => []).value = []
+    txnsState.value = []
+    budgetsState.value = []
+    insightsState.value = []
+    dealsState.value = []
+    personalizedDealsState.value = []
   }
 
   const fetchUser = async () => {

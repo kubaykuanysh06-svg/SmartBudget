@@ -15,9 +15,12 @@ export const useApi = (token = useCookie<string | null>('auth_token')) => {
         headers,
       })
     } catch (err: any) {
-      if (err?.response?.status === 401) {
+      const status = err?.statusCode ?? err?.status ?? err?.response?.status
+      if (status === 401) {
         token.value = null
-        navigateTo('/auth/login')
+        if (import.meta.client) {
+          navigateTo('/auth/login')
+        }
       }
       throw err
     }

@@ -1,82 +1,136 @@
 <template>
   <div class="space-y-6">
-    <!-- Header with Add Button -->
-    <div class="flex items-center justify-between">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-bold">Список покупок и доходов</h2>
-        <p class="text-sm text-gray-500">Управляйте своими расходами и доходами</p>
+        <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Кірістер мен шығыстар</h2>
+        <p class="text-sm text-slate-500">Барлық қаржылық операцияларыңызды сүзгілеп, басқарыңыз</p>
       </div>
       <UButton
         icon="i-heroicons-plus"
         color="emerald"
-        label="Добавить операцию"
+        size="md"
+        label="Операция қосу"
         @click="openModal"
       />
     </div>
 
+    <!-- Filtered Summary Strip -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-500">Табылған жазбалар</span>
+        <span class="text-sm font-extrabold tabular-nums text-slate-900 dark:text-white">{{ filteredTransactions.length }}</span>
+      </div>
+      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-500">Кірістер жиыны</span>
+        <span class="text-sm font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">+{{ formatCurrency(filteredIncome) }}</span>
+      </div>
+      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-500">Шығыстар жиыны</span>
+        <span class="text-sm font-extrabold tabular-nums text-rose-600 dark:text-rose-400">-{{ formatCurrency(filteredExpense) }}</span>
+      </div>
+    </div>
+
     <!-- Filters Bar -->
-    <UCard :ui="{ body: { padding: 'p-3 sm:p-4' } }">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <UInput
-          v-model="searchQuery"
-          icon="i-heroicons-magnifying-glass"
-          placeholder="Поиск по описанию или магазину..."
-        />
-        <USelect
-          v-model="selectedType"
-          :options="[
-            { label: 'Все типы', value: 'all' },
-            { label: 'Расходы', value: 'expense' },
-            { label: 'Доходы', value: 'income' },
-          ]"
-        />
-        <UInput v-model="startDate" type="date" placeholder="С даты" />
-        <UInput v-model="endDate" type="date" placeholder="По дату" />
+    <UCard :ui="{ body: { padding: 'p-4 sm:p-4' } }">
+      <div class="flex flex-col xl:flex-row gap-3 xl:items-center">
+        <div class="flex-1 min-w-0">
+          <UInput
+            v-model="searchQuery"
+            icon="i-heroicons-magnifying-glass"
+            placeholder="Сипаттама немесе дүкен бойынша іздеу..."
+          />
+        </div>
+
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          <div class="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 shrink-0">
+            <button
+              v-for="opt in typeFilterOptions"
+              :key="opt.value"
+              type="button"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all"
+              :class="
+                selectedType === opt.value
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              "
+              @click="selectedType = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 flex-1 sm:flex-initial">
+            <UInput v-model="startDate" type="date" class="w-36 sm:w-40" title="Басталу күні" />
+            <UInput v-model="endDate" type="date" class="w-36 sm:w-40" title="Аяқталу күні" />
+            <UButton
+              v-if="hasActiveFilters"
+              color="gray"
+              variant="ghost"
+              icon="i-heroicons-x-mark"
+              size="sm"
+              title="Сүзгіні тазалау"
+              @click="resetFilters"
+            />
+          </div>
+        </div>
       </div>
     </UCard>
 
-    <!-- Transactions Table -->
+    <!-- Transactions List -->
     <UCard :ui="{ body: { padding: 'p-0 sm:p-0' } }">
-      <div v-if="filteredTransactions.length === 0" class="py-16 text-center text-gray-400">
-        <UIcon name="i-heroicons-inbox" class="w-12 h-12 mx-auto mb-2 opacity-50" />
-        <p>Операций не найдено</p>
+      <div v-if="filteredTransactions.length === 0" class="py-16 px-6 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+          <UIcon name="i-heroicons-inbox" class="w-6 h-6" />
+        </div>
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Операциялар табылмады</p>
+        <p class="text-xs text-slate-500 mt-1">Жаңа жазба қосыңыз немесе сүзгі шарттарын өзгертіңіз</p>
       </div>
-      <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
+
+      <div v-else class="divide-y divide-slate-100 dark:divide-slate-800/80">
         <div
           v-for="item in filteredTransactions"
           :key="item.id"
-          class="p-4 flex items-center justify-between hover:bg-gray-50/50 dark:hover:bg-gray-800/40 transition-colors"
+          class="p-4 sm:px-5 flex items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
         >
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
-              {{ item.category?.icon || categoryFor(item.category_id)?.icon || (item.type === 'income' ? '💰' : '💳') }}
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              :class="visualFor(item).badgeClass"
+            >
+              <UIcon :name="visualFor(item).icon" class="w-5 h-5" />
             </div>
-            <div>
-              <p class="font-medium text-sm">{{ item.description || 'Без описания' }}</p>
-              <div class="flex items-center gap-2 mt-0.5">
-                <span class="text-xs text-gray-400">{{ item.merchant || 'Без магазина' }}</span>
-                <span class="text-xs text-gray-300 dark:text-gray-600">•</span>
-                <span class="text-xs text-emerald-600 font-medium">
-                  {{ item.category?.name || categoryFor(item.category_id)?.name || 'Общая' }}
+            <div class="min-w-0">
+              <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                {{ item.description || 'Сипаттамасыз' }}
+              </p>
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  {{ resolvedCategoryLabel(item) }}
+                </span>
+                <span v-if="item.merchant" class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {{ item.merchant }}
                 </span>
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-4">
+
+          <div class="flex items-center gap-3 shrink-0">
             <div class="text-right">
               <p
-                class="font-semibold text-sm"
-                :class="item.type === 'income' ? 'text-green-600' : 'text-rose-600'"
+                class="font-bold text-sm sm:text-base tabular-nums"
+                :class="item.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
               >
                 {{ item.type === 'income' ? '+' : '-' }}{{ formatCurrency(item.amount) }}
               </p>
-              <p class="text-xs text-gray-400">{{ item.transaction_date }}</p>
+              <p class="text-[11px] text-slate-400 tabular-nums">{{ item.transaction_date }}</p>
             </div>
             <UButton
               color="gray"
               variant="ghost"
               icon="i-heroicons-trash"
               size="xs"
+              title="Операцияны өшіру"
               @click="handleDelete(item.id)"
             />
           </div>
@@ -84,54 +138,101 @@
       </div>
     </UCard>
 
-    <!-- Create Modal -->
+    <!-- Create Operation Modal -->
     <UModal v-model="isModalOpen">
-      <div class="p-6 space-y-4">
-        <h3 class="text-lg font-bold">Новая операция</h3>
-        <div class="space-y-3">
+      <div class="p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Жаңа операция</h3>
+          <UButton color="gray" variant="ghost" icon="i-heroicons-x-mark" size="xs" @click="isModalOpen = false" />
+        </div>
+
+        <!-- Segmented Expense / Income Toggle -->
+        <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+          <button
+            type="button"
+            class="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+            :class="
+              newForm.type === 'expense'
+                ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            "
+            @click="newForm.type = 'expense'"
+          >
+            <UIcon name="i-heroicons-arrow-up-right" class="w-4 h-4" />
+            <span>Шығыс</span>
+          </button>
+          <button
+            type="button"
+            class="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+            :class="
+              newForm.type === 'income'
+                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            "
+            @click="newForm.type = 'income'"
+          >
+            <UIcon name="i-heroicons-arrow-down-left" class="w-4 h-4" />
+            <span>Кіріс</span>
+          </button>
+        </div>
+
+        <div class="space-y-3.5">
           <div>
-            <label class="block text-xs font-medium mb-1">Тип</label>
-            <USelect
-              v-model="newForm.type"
-              :options="[
-                { label: 'Расход', value: 'expense' },
-                { label: 'Доход', value: 'income' },
-              ]"
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              Сома ({{ currency }})
+            </label>
+            <UInput
+              v-model="newForm.amount"
+              type="number"
+              size="lg"
+              step="0.01"
+              min="0.01"
+              placeholder="Мысалы: 8000"
             />
           </div>
+
           <div>
-            <label class="block text-xs font-medium mb-1" for="transaction-category">Категория</label>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="transaction-category">
+              Санат
+            </label>
             <USelect id="transaction-category" v-model="newForm.category_id" :options="categoryOptions" />
           </div>
+
           <div>
-            <label class="block text-xs font-medium mb-1">Сумма ({{ currency }})</label>
-            <UInput v-model="newForm.amount" type="number" step="0.01" min="0.01" placeholder="1000" />
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              Сипаттама / Тауар атауы
+            </label>
+            <UInput v-model="newForm.description" placeholder="Мысалы: Апталық азық-түлік" />
           </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">Описание / Товар</label>
-            <UInput v-model="newForm.description" placeholder="Продукты в супермаркете" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">Магазин / Место</label>
-            <UInput v-model="newForm.merchant" placeholder="Magnum, Kaspi, Small" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">Дата</label>
-            <UInput v-model="newForm.transaction_date" type="date" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                Дүкен / Орын
+              </label>
+              <UInput v-model="newForm.merchant" placeholder="Magnum, Kaspi, Small" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                Күні
+              </label>
+              <UInput v-model="newForm.transaction_date" type="date" />
+            </div>
           </div>
         </div>
 
         <div
           v-if="formError"
           role="alert"
-          class="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg px-3 py-2"
+          class="flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 ring-1 ring-rose-200 dark:ring-rose-900/70 rounded-xl px-3.5 py-2.5"
         >
-          {{ formError }}
+          <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 shrink-0" />
+          <span>{{ formError }}</span>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <UButton color="gray" variant="ghost" label="Отмена" @click="isModalOpen = false" />
-          <UButton color="emerald" label="Сохранить" :loading="isSubmitting" @click="handleSubmit" />
+          <UButton color="gray" variant="ghost" label="Бас тарту" @click="isModalOpen = false" />
+          <UButton color="emerald" label="Сақтау" :loading="isSubmitting" @click="handleSubmit" />
         </div>
       </div>
     </UModal>
@@ -140,7 +241,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import type { CategoryTree, TransactionType } from '~~/shared/types'
+import type { CategoryTree, Transaction, TransactionType } from '~~/shared/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,9 +253,15 @@ const isSubmitting = ref(false)
 const formError = ref('')
 
 const searchQuery = ref('')
-const selectedType = ref('all')
+const selectedType = ref<'all' | 'expense' | 'income'>('all')
 const startDate = ref('')
 const endDate = ref('')
+
+const typeFilterOptions: { label: string; value: 'all' | 'expense' | 'income' }[] = [
+  { label: 'Барлығы', value: 'all' },
+  { label: 'Шығыстар', value: 'expense' },
+  { label: 'Кірістер', value: 'income' },
+]
 
 const newForm = ref({
   type: 'expense' as TransactionType,
@@ -164,6 +271,17 @@ const newForm = ref({
   category_id: '',
   transaction_date: dayjs().format('YYYY-MM-DD'),
 })
+
+const hasActiveFilters = computed(
+  () => Boolean(searchQuery.value || selectedType.value !== 'all' || startDate.value || endDate.value),
+)
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedType.value = 'all'
+  startDate.value = ''
+  endDate.value = ''
+}
 
 const openModal = () => {
   formError.value = ''
@@ -176,9 +294,13 @@ function flattenCategories(tree: CategoryTree[]): CategoryTree[] {
 
 const categories = computed(() => flattenCategories(categoryTree.value))
 const categoryOptions = computed(() => [
-  { label: 'Без категории', value: '' },
-  ...categories.value.filter(category => category.type === newForm.value.type)
-    .map(category => ({ label: category.name, value: category.id })),
+  { label: 'Санатсыз', value: '' },
+  ...categories.value
+    .filter(category => category.type === newForm.value.type)
+    .map(category => ({
+      label: translateCategoryName(category.name),
+      value: category.id,
+    })),
 ])
 
 watch(() => newForm.value.type, () => { newForm.value.category_id = '' })
@@ -190,6 +312,15 @@ watch(() => route.query.action, (action) => {
 }, { immediate: true })
 
 const categoryFor = (id: string | null) => categories.value.find(category => category.id === id)
+
+const resolvedCategoryName = (item: Transaction) =>
+  item.category?.name || categoryFor(item.category_id)?.name || null
+
+const resolvedCategoryLabel = (item: Transaction) =>
+  translateCategoryName(resolvedCategoryName(item), item.type === 'income' ? 'Кіріс' : 'Жалпы')
+
+const visualFor = (item: Transaction) =>
+  getCategoryVisual(resolvedCategoryName(item), item.type)
 
 const filteredTransactions = computed(() => {
   return transactions.transactions.value.filter((t) => {
@@ -206,10 +337,22 @@ const filteredTransactions = computed(() => {
   })
 })
 
+const filteredIncome = computed(() =>
+  filteredTransactions.value
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0),
+)
+
+const filteredExpense = computed(() =>
+  filteredTransactions.value
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0),
+)
+
 const { currency, formatCurrency } = useCurrencyFormat()
 
 const handleDelete = async (id: string) => {
-  if (confirm('Удалить эту операцию?')) {
+  if (confirm('Бұл операцияны өшіруді растайсыз ба?')) {
     await transactions.deleteTransaction(id)
   }
 }
@@ -222,11 +365,11 @@ const handleSubmit = async () => {
     return
   }
   if (!newForm.value.description.trim()) {
-    formError.value = 'Введите описание операции'
+    formError.value = 'Операция сипаттамасын енгізіңіз'
     return
   }
   if (!newForm.value.transaction_date) {
-    formError.value = 'Укажите дату операции'
+    formError.value = 'Операция күнін көрсетіңіз'
     return
   }
 
@@ -245,7 +388,7 @@ const handleSubmit = async () => {
     newForm.value.description = ''
     newForm.value.merchant = ''
   } catch (err: any) {
-    formError.value = formatApiError(err, 'Не удалось сохранить операцию')
+    formError.value = formatApiError(err, 'Операцияны сақтау мүмкін болмады')
   } finally {
     isSubmitting.value = false
   }

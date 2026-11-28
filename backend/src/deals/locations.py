@@ -1,11 +1,16 @@
 """Retail locations from OSM-derived providers."""
 
 import asyncio
+import json
 import math
 import os
 from time import monotonic
 
 import httpx
+import redis.asyncio as aioredis
+from redis.exceptions import RedisError
+
+from src.core.config import settings
 
 HEADERS = {"User-Agent": "SmartBudget/1.0 (interactive retail locator)"}
 PHOTON = os.getenv("SMARTBUDGET_GEOCODER_URL", "https://photon.komoot.io/api/")
@@ -18,6 +23,35 @@ OVERPASS = [url.strip() for url in os.getenv(
 ROUTE_SERVICE = os.getenv("SMARTBUDGET_ROUTE_URL", "").rstrip("/")
 CACHE: dict[tuple, tuple[float, object]] = {}
 REQUEST_LIMIT = asyncio.Semaphore(2)
+_redis_retry_after: float = 0.0
+
+
+async def _redis_get(cache_key: str):
+    global _redis_retry_after
+    if monotonic() < _redis_retry_after:
+        return None
+    try:
+        async with aioredis.from_url(
+            settings.REDIS_URL, socket_connect_timeout=0.3, socket_timeout=0.5
+        ) as client:
+            raw = await client.get(cache_key)
+            return json.loads(raw) if raw else None
+    except (RedisError, OSError, ValueError):
+        _redis_retry_after = monotonic() + 60.0
+        return None
+
+
+async def _redis_set(cache_key: str, ttl: int, body: object) -> None:
+    global _redis_retry_after
+    if monotonic() < _redis_retry_after:
+        return
+    try:
+        async with aioredis.from_url(
+            settings.REDIS_URL, socket_connect_timeout=0.3, socket_timeout=0.5
+        ) as client:
+            await client.setex(cache_key, ttl, json.dumps(body))
+    except (RedisError, OSError, TypeError):
+        _redis_retry_after = monotonic() + 60.0
 CITIES = [
     ("Қызылорда", "Кызылорда", "Kyzylorda", 44.8488, 65.4823),
     ("Алматы", "Алматы", "Almaty", 43.2389, 76.8897),
@@ -38,16 +72,27 @@ def distance_km(lat: float, lon: float, to_lat: float, to_lon: float) -> float:
 
 
 async def cached_json(key: tuple, ttl: int, method: str, url: str, **options):
+    timeout = options.pop('timeout', 8)
+    if not ttl:
+        async with REQUEST_LIMIT, httpx.AsyncClient(headers=HEADERS, timeout=timeout) as client:
+            response = await client.request(method, url, **options)
+            response.raise_for_status()
+            return response.json()
     cached = CACHE.get(key)
     if cached and monotonic() - cached[0] < ttl:
         return cached[1]
-    async with REQUEST_LIMIT, httpx.AsyncClient(headers=HEADERS, timeout=12) as client:
+    redis_key = "sb:geo:" + ":".join(str(part) for part in key)
+    persisted = await _redis_get(redis_key)
+    if persisted is not None:
+        return persisted
+    async with REQUEST_LIMIT, httpx.AsyncClient(headers=HEADERS, timeout=timeout) as client:
         response = await client.request(method, url, **options)
         response.raise_for_status()
         body = response.json()
     if len(CACHE) >= 256:
         CACHE.pop(next(iter(CACHE)))
     CACHE[key] = monotonic(), body
+    await _redis_set(redis_key, ttl, body)
     return body
 
 
@@ -60,7 +105,7 @@ async def places(query: str, lang: str) -> list[dict]:
     if any(query.casefold() == name.casefold() for city in CITIES for name in city[:3]):
         return results
     try:
-        data = await cached_json(("places", query.casefold(), lang), 3600, "GET", PHOTON,
+        data = await cached_json(("places",), 0, "GET", PHOTON,
             params={"q": query, "limit": 7, "lang": lang if lang != "kk" else "en"})
         for feature in data.get("features", []):
             info = feature.get("properties", {})
@@ -82,7 +127,7 @@ async def nearby(lat: float, lon: float, radius: float) -> dict:
     data = None
     for url in OVERPASS:
         try:
-            data = await cached_json(("stores", lat_key, lon_key, radius), 1800, "POST", url, data={"data": query})
+            data = await cached_json(("stores", lat_key, lon_key, radius), 1800, "POST", url, timeout=5, data={"data": query})
             break
         except (httpx.HTTPError, ValueError):
             continue
@@ -110,7 +155,7 @@ async def route(lat: float, lon: float, to_lat: float, to_lon: float) -> dict | 
         return None
     points = f"{lon:.5f},{lat:.5f};{to_lon:.5f},{to_lat:.5f}"
     try:
-        data = await cached_json(("route", points), 300, "GET",
+        data = await cached_json(("route",), 0, "GET",
             f"{ROUTE_SERVICE}/route/v1/driving/{points}", params={"overview": "false"})
         best = next(iter(data.get("routes", [])), None)
         if best:

@@ -13,7 +13,8 @@ export function useLanguage() {
   const locale = computed(() => ({ kk: 'kk-KZ', ru: 'ru-KZ', en: 'en-GB' })[language.value])
   const tr = (kk: string, ru: string, en: string) => ({ kk, ru, en })[language.value]
   const t = (label: string) => language.value === 'kk' ? label : messages[label]?.[language.value === 'ru' ? 0 : 1] || label
-  const money = (value: number | string | null | undefined) => value == null ? '—' : new Intl.NumberFormat(locale.value, { maximumFractionDigits: 2 }).format(Number(value)) + ' ₸'
+  const tenge = computed(() => new Intl.NumberFormat(locale.value, { maximumFractionDigits: 2 }))
+  const money = (value: number | string | null | undefined) => value == null ? '—' : tenge.value.format(Number(value)) + ' ₸'
   const decimal = (value: number | string) => new Intl.NumberFormat(locale.value, { maximumFractionDigits: 3 }).format(Number(value))
   const categoryLabel = (name?: string | null, fallback = 'Жалпы') => t(translateCategoryName(name, fallback))
   const dateLabel = (value: string) => language.value === 'kk' ? formatKzDate(value) :

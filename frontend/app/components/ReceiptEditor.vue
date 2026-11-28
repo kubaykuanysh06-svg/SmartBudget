@@ -234,7 +234,7 @@ const saveBlocker = computed(() => {
   if (!form.purchase_date) return t('Сақтау үшін чек күнін енгізіңіз.')
   if (!items.value.length) return t('Сақтау үшін кемінде бір тауар қосыңыз.')
   if (items.value.some(item => !item.name.trim())) return t('Сақтау үшін әр тауардың атауын енгізіңіз.')
-  if (items.value.some(item => item.barcode.trim() && !/^\d{8,14}$/.test(item.barcode.trim()))) return tr('Штрихкод 8–14 цифрдан тұруы керек.', 'Штрихкод должен содержать 8–14 цифр.', 'Barcodes must contain 8–14 digits.')
+  if (items.value.some(item => item.barcode.trim() && !validBarcode(item.barcode.trim()))) return tr('Штрихкод 8, 12, 13 немесе 14 цифрдан тұруы керек.', 'Допустимая длина штрихкода — 8, 12, 13 или 14 цифр.', 'Barcodes must contain 8, 12, 13 or 14 digits.')
   if (!(Number(decimalValue(form.paid)) > 0)) return t('Чекте төленген соманы енгізіңіз.')
   if (sourceCurrency.value !== 'KZT' && !confirmKzt.value) return t('Форманың жоғарғы жағында сомалардың теңгемен көрсетілгенін растаңыз.')
   if (previewError.value) return t('Сақтау үшін есептегі көрсетілген қатені түзетіңіз.')
@@ -274,6 +274,10 @@ function rowLabel(index: number, text: string) {
 
 function mark(fields: string[], field: string) {
   return (field === 'product_details' ? detailFields.value.some(detail => fields.includes(detail.key)) : fields.includes(field)) ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40' : ''
+}
+
+function validBarcode(value: string) {
+  return /^(?:\d{8}|\d{12,14})$/.test(value)
 }
 
 function comparisonLink(item: ReturnType<typeof editableLine>) {
@@ -328,23 +332,25 @@ function loadExtraction(extraction: ExtractedReceipt) {
   const validDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date))
   Object.assign(form, {
     merchant: extraction.merchant?.slice(0, 255) || '', purchase_date: validDate ? date : '',
-    branch: extraction.branch?.slice(0, 120) || '', branch_address: extraction.branch_address?.slice(0, 255) || '',
+    branch: extraction.branch?.slice(0, 160) || '', branch_address: extraction.branch_address?.slice(0, 255) || '',
     receipt_number: extraction.receipt_number?.slice(0, 120) || '', paid: textValue(extraction.paid),
     order_discount: textValue(extraction.order_discount), fees: textValue(extraction.fees),
   })
   items.value = extraction.items.map(line => {
+    const barcode = line.barcode?.replace(/[\s-]/g, '') || ''
     const suggestion = line.suggested_category?.trim().toLowerCase()
     const category = props.categories.find(option => option.name.trim().toLowerCase() === suggestion)
     return editableLine({
       name: line.name?.slice(0, 255) || '', quantity: textValue(line.quantity),
-      brand: line.brand?.slice(0, 120), barcode: line.barcode?.slice(0, 24), variant: line.variant?.slice(0, 120),
+      brand: line.brand?.slice(0, 120), barcode: validBarcode(barcode) ? barcode : '', variant: line.variant?.slice(0, 120),
       fat_percent: textValue(line.fat_percent), package_size: textValue(line.package_size),
-      package_unit: line.package_unit?.slice(0, 24), promotion_condition: line.promotion_condition?.slice(0, 255),
+      package_unit: line.package_unit?.slice(0, 24), promotion_condition: line.promotion_condition?.slice(0, 250),
       unit: line.unit?.slice(0, 24) || '', unit_price: textValue(line.unit_price),
       discount: textValue(line.discount), line_total: textValue(line.line_total),
       line_total_is_net: line.line_total_is_net, category_id: category?.id,
     }, [...new Set([
       ...line.uncertain_fields,
+      ...(barcode && !validBarcode(barcode) ? ['barcode'] : []),
       ...lineFields.filter(field => line[field.key] == null).map(field => field.key),
       ...(!category ? ['category_id'] : []),
       ...(Number(line.discount) > 0 && line.line_total != null && line.line_total_is_net == null ? ['line_total_is_net'] : []),

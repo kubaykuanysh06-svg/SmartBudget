@@ -11,6 +11,8 @@ export type Offer = {
   package_price: string | null; unit_price: string | null; trip_total: string | null
   source_kind: 'receipt' | 'catalog'; source_name: string; source_url: string | null; condition: string
   current_price_verified: boolean; available_today: boolean | null; age_days: number
+  /** True when the price comes from the viewer's own receipt. */
+  own_receipt?: boolean; transaction_id?: string | null
 }
 export type Recommendation = { offer_id: string; value: string | number; compare_id: string | null; savings: string | null }
 export type Comparison = {

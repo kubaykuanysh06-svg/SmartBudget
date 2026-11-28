@@ -55,6 +55,7 @@
         <p v-if="!result.offers.some(offer => offer.current_price_verified)" class="text-sm text-amber-700 dark:text-amber-300">{{ tr('Бүгінгі баға мен қорды растауға дерек жеткіліксіз. Көрсетілген бағалардың тіркелген күнін тексеріңіз.', 'Недостаточно данных для подтверждения цен и наличия на сегодня. Проверяйте даты указанных цен.', 'There is insufficient data to verify today’s prices and stock. Check the date of each price.') }}</p>
         <p v-if="!result.offers.length" class="text-sm sb-muted">{{ tr('Сәйкес баға дерегі табылмады.', 'Подходящих цен не найдено.', 'No matching price data found.') }}</p>
         <p v-else-if="result.offers[0]?.match === 'search'" class="text-sm sb-muted">{{ tr('Салыстыру үшін тізімнен нақты тауарды таңдаңыз.', 'Выберите товар в списке для сравнения.', 'Select a product below to compare its offers.') }}</p>
+        <p v-if="area && result.offers.some(offer => offer.distance_km === null)" class="text-sm sb-muted">{{ tr('Орны белгісіз филиалдар радиус бойынша ұсыныстарға кірмейді.', 'Филиалы без координат не учитываются в рекомендациях по радиусу.', 'Branches without a known location are excluded from recommendations within the radius.') }}</p>
         <div v-if="recommendations.length" class="grid gap-3 sm:grid-cols-2">
           <div v-for="card in recommendations" :key="card.key" class="rounded-xl bg-[var(--sb-soft)] p-3 text-sm">
             <h4 class="font-bold">{{ card.label }}</h4>
@@ -67,6 +68,11 @@
             <p v-if="card.key === 'cheapest_with_trip'" class="text-xs sb-muted">{{ tr('Түзу сызықпен есептелген болжам.', 'Оценка по расстоянию по прямой.', 'Estimate based on straight-line distance.') }}</p>
           </div>
         </div>
+        <p v-if="result.offers.length && result.offers[0]?.match !== 'search' && !result.offers.some(offer => offer.distance_km !== null)" class="text-sm sb-muted">
+          {{ area
+            ? tr('Бұл ұсыныстардың филиалдары картадан табылмады, сондықтан «Ең жақын» нұсқа мен жол құны есептелмеді.', 'Филиалы этих предложений не найдены на карте, поэтому «Ближайший» вариант и стоимость дороги не рассчитаны.', 'These offers’ branches were not found on the map, so the closest option and travel cost could not be calculated.')
+            : tr('Орныңызды таңдасаңыз, «Ең жақын» нұсқа мен жол құны да есептеледі.', 'Укажите местоположение, чтобы рассчитать «Ближайший» вариант и стоимость дороги.', 'Choose your location to also see the closest option and travel cost.') }}
+        </p>
         <section v-for="section in sections" :key="section.key">
           <h4 class="mb-2 text-sm font-bold">{{ section.label }}</h4>
           <div class="grid gap-2 xl:grid-cols-2">
@@ -74,12 +80,14 @@
               <div class="flex flex-wrap justify-between gap-2">
                 <strong>{{ offer.product.name }}</strong><span v-if="offer.package_price !== null" class="font-bold tabular-nums">{{ money(offer.package_price) }}</span>
               </div>
+              <p v-if="offer.product.package_size" class="sb-muted">{{ tr('Қаптама', 'Упаковка', 'Package') }} · {{ decimal(offer.product.package_size) }} {{ unit(offer.product.package_unit || '') }}</p>
               <p>{{ offerName(offer) }} · {{ offer.address || tr('Мекенжай көрсетілмеген', 'Адрес не указан', 'Address unavailable') }}</p>
               <p class="sb-muted">{{ offer.unit_price !== null ? money(offer.unit_price) + ' / ' + unit(offer.unit) : tr('Бірлік бағасы белгісіз', 'Цена за единицу неизвестна', 'Unit price unavailable') }} · {{ offer.distance_km === null ? tr('Қашықтық белгісіз', 'Расстояние неизвестно', 'Distance unavailable') : km(offer.distance_km) }}</p>
-              <p class="sb-muted">{{ evidence(offer) }} · {{ offer.date }} · <a v-if="offer.source_url" :href="offer.source_url" target="_blank" rel="noopener" class="underline">{{ offer.source_name }}</a><span v-else>{{ tr('Сақталған чек', 'Сохранённый чек', 'Saved receipt') }}</span></p>
+              <p class="sb-muted">{{ evidence(offer) }} · {{ offer.date }} · <a v-if="offer.source_url" :href="offer.source_url" target="_blank" rel="noopener" class="underline">{{ offer.source_name }}</a><NuxtLink v-else-if="offer.transaction_id" :to="{ path: '/transactions', query: { receipt: offer.transaction_id } }" class="underline">{{ tr('Сіздің чегіңіз', 'Ваш чек', 'Your receipt') }}</NuxtLink><span v-else>{{ offer.source_name }}</span></p>
               <p class="sb-muted">{{ offer.available_today === true ? tr('Қорда бар екені расталды', 'Наличие подтверждено', 'In stock, verified') : offer.available_today === false ? tr('Қорда жоқ', 'Нет в наличии', 'Out of stock') : tr('Қордағы күйі расталмаған', 'Наличие не подтверждено', 'Stock unverified') }}</p>
               <p v-if="offer.condition" class="text-amber-700 dark:text-amber-300">{{ tr('Акция шарты', 'Условие акции', 'Promotion condition') }} · {{ offer.condition }}</p>
               <p v-if="offer.trip_total !== null" class="font-medium">{{ tr('Жолды қосқанда', 'С учётом дороги', 'With travel') }} {{ money(offer.trip_total) }}</p>
+              <p v-else-if="offer.condition && Number(travel) > 0 && offer.distance_km !== null" class="text-xs sb-muted">{{ tr('Акцияға қажетті сатып алудың толық сомасы белгісіз.', 'Полная стоимость покупки по акции неизвестна.', 'The full qualifying purchase cost is unknown.') }}</p>
               <UButton v-if="offer.match !== 'exact'" size="xs" variant="soft" @click="chooseProduct(offer.product)">{{ tr('Осы тауарды салыстыру', 'Сравнить этот товар', 'Compare this product') }}</UButton>
             </div>
           </div>

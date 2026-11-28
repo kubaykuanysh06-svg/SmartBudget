@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -23,9 +25,23 @@ def upload_token(user_id: str, tag: str) -> str:
     )
 
 
-def milk(size: str, price: str, quantity: str = "1", **extra) -> dict:
+def new_brand() -> str:
+    """Prices are shared by all users, so each test uses its own brand to stay independent."""
+    return "Br" + uuid.uuid4().hex[:8]
+
+
+def new_barcode() -> str:
+    return "487" + "".join(random.choice("0123456789") for _ in range(10))
+
+
+def reference_for(brand: str, size: str = "1") -> dict:
+    return {"name": f"Молоко {brand} 2,5% {size} л", "brand": brand, "variant": "пастерленген",
+            "fat_percent": "2.5", "package_size": size, "package_unit": "л"}
+
+
+def milk(size: str, price: str, quantity: str = "1", brand: str = "Lactel", **extra) -> dict:
     return {
-        "name": f"Молоко Lactel 2,5% {size} л", "brand": "Lactel", "variant": "пастерленген",
+        "name": f"Молоко {brand} 2,5% {size} л", "brand": brand, "variant": "пастерленген",
         "fat_percent": "2.5", "package_size": size, "package_unit": "л", "quantity": quantity,
         "unit": "шт", "unit_price": price, "line_total": str(Decimal(price) * Decimal(quantity)),
         "discount": "0", **extra,
@@ -45,16 +61,18 @@ async def save_receipt(client, auth, tag: str, merchant: str, day: date, items: 
 
 async def test_unit_price_and_package_price_are_reported_separately(client):
     auth = await register_and_login(client, "Milk")
-    await save_receipt(client, auth, "a", "Magnum", TODAY, [milk("0.9", "540")], branch="Абай 10")
-    await save_receipt(client, auth, "b", "Small", TODAY, [milk("1", "580")], branch="Сейфуллин 5")
+    brand = new_brand()
+    await save_receipt(client, auth, "a", "Magnum", TODAY, [milk("0.9", "540", brand=brand)], branch="Абай 10")
+    await save_receipt(client, auth, "b", "Small", TODAY, [milk("1", "580", brand=brand)], branch="Сейфуллин 5")
 
-    reference = {"name": "Молоко Lactel 2,5% 1 л", "brand": "Lactel", "variant": "пастерленген",
-                 "fat_percent": "2.5", "package_size": "1", "package_unit": "л"}
+    reference = reference_for(brand)
     res = await client.post("/api/shopping/compare", json={"reference": reference}, headers=auth["headers"])
     assert res.status_code == 200, res.text
     data = res.json()
     by_id = {row["id"]: row for row in data["offers"]}
-    assert {row["match"] for row in data["offers"]} == {"exact", "other_package"}
+    ours = [row for row in data["offers"] if row["product"]["brand"] == brand]
+    assert {row["match"] for row in ours} == {"exact", "other_package"}
+    assert all(row["match"] not in ("exact", "other_package") for row in data["offers"] if row not in ours)
 
     package = data["recommendations"]["cheapest_package"]
     assert by_id[package["offer_id"]]["store"] == "Magnum"
@@ -68,28 +86,29 @@ async def test_unit_price_and_package_price_are_reported_separately(client):
     assert Decimal(by_id[unit["compare_id"]]["unit_price"]) == Decimal("600")
 
     # Receipt prices are recorded observations, not verified current prices.
-    assert all(row["source_kind"] == "receipt" and not row["current_price_verified"] for row in data["offers"])
+    assert all(row["source_kind"] == "receipt" and not row["current_price_verified"] for row in ours)
+    assert all(row["own_receipt"] and row["date"] == TODAY.isoformat() for row in ours)
 
 
 async def test_branches_conditions_and_old_prices(client):
     auth = await register_and_login(client, "Branches")
+    brand = new_brand()
     old_day = TODAY - timedelta(days=40)
-    await save_receipt(client, auth, "c1", "Magnum", old_day, [milk("1", "560")], branch="№12", branch_address="Абай 10")
-    await save_receipt(client, auth, "c2", "Magnum", TODAY, [milk("1", "600")], branch="№7", branch_address="Төле би 4")
+    await save_receipt(client, auth, "c1", "Magnum", old_day, [milk("1", "560", brand=brand)], branch="№12", branch_address="Абай 10")
+    await save_receipt(client, auth, "c2", "Magnum", TODAY, [milk("1", "600", brand=brand)], branch="№7", branch_address="Төле би 4")
     await save_receipt(
         client, auth, "c3", "Small", TODAY,
-        [milk("1", "590", discount="50", line_total_is_net=False, promotion_condition="Small Club картасымен")],
+        [milk("1", "590", brand=brand, discount="50", line_total_is_net=False, promotion_condition="Small Club картасымен")],
     )
-    reference = {"name": "Молоко Lactel 2,5% 1 л", "brand": "Lactel", "variant": "пастерленген",
-                 "fat_percent": "2.5", "package_size": "1", "package_unit": "л"}
+    reference = reference_for(brand)
 
     res = await client.post("/api/shopping/compare", json={"reference": reference}, headers=auth["headers"])
     data = res.json()
-    magnum = [row for row in data["offers"] if row["store"] == "Magnum"]
+    magnum = [row for row in data["offers"] if row["store"] == "Magnum" and row["product"]["brand"] == brand]
     assert {row["branch"] for row in magnum} == {"№12", "№7"}, "each branch is a separate offer"
     old = next(row for row in magnum if row["branch"] == "№12")
     assert old["age_days"] == 40 and old["date"] == old_day.isoformat()
-    conditional = next(row for row in data["offers"] if row["store"] == "Small")
+    conditional = next(row for row in data["offers"] if row["store"] == "Small" and row["product"]["brand"] == brand)
     assert conditional["condition"] == "Small Club картасымен"
     assert Decimal(conditional["package_price"]) == Decimal("540")
     by_id = {row["id"]: row for row in data["offers"]}
@@ -105,27 +124,28 @@ async def test_branches_conditions_and_old_prices(client):
 
 async def test_similar_and_uncertain_matches_are_marked(client):
     auth = await register_and_login(client, "Similar")
+    brand = new_brand()
     await save_receipt(client, auth, "s1", "Magnum", TODAY, [
-        milk("1", "580"),
-        {**milk("1", "520"), "name": "Молоко Lactel 3,2% 1 л", "fat_percent": "3.2"},
+        milk("1", "580", brand=brand),
+        {**milk("1", "520", brand=brand), "name": f"Молоко {brand} 3,2% 1 л", "fat_percent": "3.2"},
         {"name": "Молоко 1 л", "quantity": "1", "unit": "шт", "unit_price": "450", "line_total": "450"},
     ])
-    reference = {"name": "Молоко Lactel 2,5% 1 л", "brand": "Lactel", "variant": "пастерленген",
-                 "fat_percent": "2.5", "package_size": "1", "package_unit": "л"}
+    reference = reference_for(brand)
     res = await client.post("/api/shopping/compare", json={"reference": reference}, headers=auth["headers"])
     matches = {row["product"]["name"]: row["match"] for row in res.json()["offers"]}
-    assert matches["Молоко Lactel 2,5% 1 л"] == "exact"
-    assert matches["Молоко Lactel 3,2% 1 л"] == "similar"
+    assert matches[f"Молоко {brand} 2,5% 1 л"] == "exact"
+    assert matches[f"Молоко {brand} 3,2% 1 л"] == "similar"
     assert matches["Молоко 1 л"] == "uncertain"
 
 
 async def test_barcode_identifies_the_same_product(client):
     auth = await register_and_login(client, "Barcode")
-    await save_receipt(client, auth, "b1", "Magnum", TODAY, [milk("1", "580", barcode="4870001234567")])
+    code = new_barcode()
+    await save_receipt(client, auth, "b1", "Magnum", TODAY, [milk("1", "580", barcode=code)])
     await save_receipt(client, auth, "b2", "Anvar", TODAY, [
-        {**milk("1", "570", barcode="4870001234567"), "name": "LACTEL сүт", "brand": ""},
+        {**milk("1", "570", barcode=code), "name": "LACTEL сүт", "brand": ""},
     ])
-    res = await client.post("/api/shopping/compare", json={"query": "4870001234567"}, headers=auth["headers"])
+    res = await client.post("/api/shopping/compare", json={"query": code}, headers=auth["headers"])
     data = res.json()
     assert {row["store"] for row in data["offers"]} == {"Magnum", "Anvar"}
     assert all(row["match"] == "exact" for row in data["offers"])

@@ -25,6 +25,7 @@
         <p class="font-semibold">{{ tr('Шығынның өзгерісі', 'Изменение расходов', 'Spending change') }} {{ signed(report.totals.difference) }} <span v-if="report.totals.percent !== null">({{ decimal(report.totals.percent) }}%)</span></p>
         <p v-if="report.top_category_growth">{{ tr('Өсімге ең көп әсер еткен санат', 'Наибольший рост по категории', 'Largest category increase') }} · {{ label(report.top_category_growth, 'category') }} · {{ signed(report.top_category_growth.difference) }}</p>
         <p v-if="report.top_product_growth">{{ tr('Өсімге ең көп әсер еткен тауар', 'Наибольший рост по товару', 'Largest product increase') }} · {{ report.top_product_growth.name }} · {{ signed(report.top_product_growth.difference) }}</p>
+        <p v-if="highestCategory">{{ tr('Ең көп шығын кеткен санат', 'Категория с наибольшими расходами', 'Highest-spending category') }} · {{ label(highestCategory, 'category') }} · {{ money(highestCategory.current) }}</p>
       </div>
       <div>
         <div class="mb-3 flex flex-wrap gap-2">
@@ -40,7 +41,7 @@
               </span>
               <span class="mt-2 block h-1.5 rounded-full bg-[var(--sb-soft)]"><span class="block h-full rounded-full bg-primary-500" :style="{ width: row.share + '%' }" /></span>
               <span v-if="row.movement" class="mt-2 block text-xs sb-muted">
-                {{ tr('Бірлік құнының әсері', 'Вклад цены за единицу', 'Unit price effect') }} {{ signed(row.movement.price_effect) }} ·
+                {{ tr('Нақты төленген бірлік құнының әсері', 'Вклад фактической цены за единицу', 'Effective unit price effect') }} {{ signed(row.movement.price_effect) }} ·
                 {{ tr('Мөлшердің әсері', 'Вклад количества', 'Quantity effect') }} {{ signed(row.movement.quantity_effect) }}
                 ({{ decimal(row.movement.previous_quantity) }} → {{ decimal(row.movement.current_quantity) }} {{ unitLabel(row.movement.unit) }};
                 {{ money(row.movement.previous_unit_cost) }} → {{ money(row.movement.current_unit_cost) }} / {{ unitLabel(row.movement.unit) }})
@@ -150,6 +151,7 @@ const groups = computed<{ key: Group; label: string }[]>(() => [
   { key: 'product', label: tr('Тауарлар', 'Товары', 'Products') },
 ])
 const rows = computed(() => (group.value === 'category' ? report.value?.categories : group.value === 'store' ? report.value?.stores : report.value?.products) || [])
+const highestCategory = computed(() => report.value?.categories.find(row => Number(row.current) > 0))
 const stats = computed(() => [
   { label: tr('Жалпы шығын', 'Общие расходы', 'Total spending'), value: money(report.value?.totals.current) },
   { label: tr('Орташа чек', 'Средний чек', 'Average receipt'), value: money(report.value?.average_receipt) },

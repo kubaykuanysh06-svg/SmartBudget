@@ -12,7 +12,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException
 from google.genai import types
 from jose import JWTError, jwt
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +21,7 @@ from src.categories.models import CategoryType
 from src.categories.services import list_categories
 from src.core.config import settings
 from src.core.exceptions import BadRequest, NotFound
+from src.deals.catalog import sync_receipt
 from src.transactions import repositories
 from src.transactions.models import Transaction, TransactionType
 from src.transactions.receipt_schemas import (
@@ -68,7 +69,7 @@ def _normalized(value: str | None) -> str:
     return "".join(char for char in unicodedata.normalize("NFKC", value or "").casefold() if char.isalnum())
 
 
-def _receipt_identity(extraction: ExtractedReceipt) -> str | None:
+def _receipt_identity(extraction: ExtractedReceipt, include_branch: bool = True) -> str | None:
     merchant = _normalized(extraction.merchant)
     receipt_number = _normalized(extraction.receipt_number)
     try:
@@ -80,18 +81,22 @@ def _receipt_identity(extraction: ExtractedReceipt) -> str | None:
     # Keep the original key for receipts without a printed branch identifier.
     branch = _normalized(extraction.branch)
     fingerprint = f"{merchant}|{purchase_date.isoformat()}|{receipt_number}"
-    if branch:
+    if branch and include_branch:
         fingerprint += f"|{branch}"
     return hashlib.sha256(fingerprint.encode()).hexdigest()
 
 
 async def find_duplicate(
-    db: AsyncSession, user_id: uuid.UUID, file_hash: str, identity: str | None = None
+    db: AsyncSession, user_id: uuid.UUID, file_hash: str, identity: str | None = None,
+    legacy_identity: str | None = None,
 ) -> Transaction | None:
     receipt = Transaction.ai_metadata["receipt"]
     criteria = receipt["file_hash"].astext == file_hash
     if identity:
         criteria = or_(criteria, receipt["identity_hash"].astext == identity)
+    if legacy_identity and legacy_identity != identity:
+        criteria = or_(criteria, and_(receipt["identity_hash"].astext == legacy_identity,
+                                     func.coalesce(receipt["branch"].astext, "") == ""))
     query = (
         select(Transaction)
         .options(selectinload(Transaction.category))
@@ -123,12 +128,14 @@ async def extract_receipt(db: AsyncSession, user_id: uuid.UUID, data: bytes) -> 
     if not extraction.is_receipt:
         raise BadRequest("No purchase receipt was recognized")
     identity = _receipt_identity(extraction)
-    if identity and (duplicate := await find_duplicate(db, user_id, file_hash, identity)):
+    legacy_identity = _receipt_identity(extraction, include_branch=False) if extraction.branch else None
+    if identity and (duplicate := await find_duplicate(db, user_id, file_hash, identity, legacy_identity)):
         return ReceiptUpload(duplicate=TransactionResponse.model_validate(duplicate))
     token = jwt.encode(
         {
             "sub": str(user_id), "type": "receipt-upload", "file_hash": file_hash,
-            "identity_hash": identity, "exp": datetime.now(timezone.utc) + timedelta(hours=12),
+            "identity_hash": identity, "legacy_identity_hash": legacy_identity,
+            "exp": datetime.now(timezone.utc) + timedelta(hours=12),
         },
         settings.SECRET_KEY, algorithm=settings.ALGORITHM,
     )
@@ -220,17 +227,19 @@ async def save_receipt(db: AsyncSession, user_id: uuid.UUID, draft: ReceiptCreat
             raise ValueError
         file_hash = claims["file_hash"]
         identity = claims.get("identity_hash")
+        legacy_identity = claims.get("legacy_identity_hash")
     except (JWTError, KeyError, ValueError):
         raise BadRequest("Receipt upload expired; upload the file again") from None
 
     # Serialize duplicate checks and inserts for a user, including alternate photos of a receipt.
     await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(str(user_id), 0))))
-    duplicate = await find_duplicate(db, user_id, file_hash, identity)
+    duplicate = await find_duplicate(db, user_id, file_hash, identity, legacy_identity)
     if duplicate is not None:
         return ReceiptResult(transaction=TransactionResponse.model_validate(duplicate), duplicate=True)
     values = await _transaction_values(db, user_id, draft)
     values["ai_metadata"]["receipt"].update(file_hash=file_hash, identity_hash=identity)
     row = await repositories.create(db, user_id=user_id, data=values)
+    await sync_receipt(db, row)
     return ReceiptResult(transaction=TransactionResponse.model_validate(row))
 
 
@@ -246,4 +255,5 @@ async def revise_receipt(
         file_hash=existing["file_hash"], identity_hash=existing.get("identity_hash")
     )
     updated = await repositories.update(db, row, values)
+    await sync_receipt(db, updated)
     return ReceiptResult(transaction=TransactionResponse.model_validate(updated))

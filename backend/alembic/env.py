@@ -16,6 +16,9 @@ from src.categories.models import Category  # noqa
 from src.transactions.models import Transaction, RecurringTransaction  # noqa
 from src.budgets.models import Budget  # noqa
 from src.deals.models import Deal, PriceHistory  # noqa
+from src.deals.catalog_models import (  # noqa
+    PriceObservation, Product, ReceiptItem, RetailChain, StoreBranch,
+)
 from src.ai.models import AiInsight  # noqa
 
 config = context.config

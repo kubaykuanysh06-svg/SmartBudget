@@ -17,7 +17,7 @@ import type { CategoryBreakdown } from '~~/shared/types'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
-const { categoryLabel } = useLanguage()
+const { t, categoryLabel } = useLanguage()
 const props = withDefaults(
   defineProps<{
     items: CategoryBreakdown[]

@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential curl libpq-dev \
+        build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .

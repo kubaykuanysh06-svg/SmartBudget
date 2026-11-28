@@ -26,9 +26,9 @@ from src.transactions.repositories import (
 # ── Helpers ───────────────────────────────────────────────
 
 
-def _current_period_range(budget: Budget) -> tuple[date, date]:
+def _current_period_range(budget: Budget, as_of: date | None = None) -> tuple[date, date]:
     """Return (start, end) of the current period window for a budget."""
-    today = date.today()
+    today = as_of or date.today()
     if budget.period == BudgetPeriod.weekly:
         start = today - timedelta(days=today.weekday())
         end = start + timedelta(days=6)
@@ -122,9 +122,9 @@ async def delete_budget(
 # ── Status calculation ────────────────────────────────────
 
 
-def _effective_window(budget: Budget) -> tuple[date, date, bool]:
+def effective_window(budget: Budget, as_of: date | None = None) -> tuple[date, date, bool]:
     """Clamp the current period window to the budget's own start/end dates."""
-    period_start, period_end = _current_period_range(budget)
+    period_start, period_end = _current_period_range(budget, as_of)
     if budget.start_date > period_start:
         period_start = budget.start_date
     if budget.end_date is not None and budget.end_date < period_end:
@@ -152,7 +152,7 @@ async def calculate_status(
     db: AsyncSession, budget: Budget
 ) -> BudgetStatus:
     """Calculate how much has been spent vs. the budget limit."""
-    period_start, period_end, in_effect = _effective_window(budget)
+    period_start, period_end, in_effect = effective_window(budget)
 
     if not in_effect:
         spent = Decimal("0")
@@ -175,7 +175,7 @@ async def list_budgets_with_status(
     if not budgets:
         return []
 
-    windows = [(b, *_effective_window(b)) for b in budgets]
+    windows = [(b, *effective_window(b)) for b in budgets]
     active_windows = [(s, e) for _, s, e, ok in windows if ok]
     if not active_windows:
         return [_build_budget_status(b, Decimal("0")) for b in budgets]

@@ -1,19 +1,19 @@
 <template>
   <div class="max-w-2xl space-y-6">
     <div>
-      <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Профиль баптаулары</h2>
-      <p class="text-sm text-slate-500">Жеке деректерді, есеп айырысу валютасын және қауіпсіздік параметрлерін басқару</p>
+      <h2 class="sb-page-title">{{ t('Профиль баптаулары') }}</h2>
+      <p class="sb-page-caption">{{ t('Жеке деректерді, есеп айырысу валютасын және қауіпсіздік параметрлерін басқару') }}</p>
     </div>
 
     <!-- Account Summary Header -->
     <UCard>
       <div class="flex items-center gap-4">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white font-extrabold text-xl flex items-center justify-center shadow-md shadow-emerald-500/20">
+        <div class="sb-avatar !h-14 !w-14 !rounded-2xl text-xl">
           {{ userInitial }}
         </div>
         <div class="min-w-0">
           <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">
-            {{ auth.user.value?.name || 'Пайдаланушы' }}
+            {{ auth.user.value?.name || t('Пайдаланушы') }}
           </h3>
           <p class="text-xs text-slate-500 truncate">{{ auth.user.value?.email }}</p>
         </div>
@@ -22,26 +22,31 @@
 
     <!-- Editable Profile Form -->
     <UCard>
+      <UFormGroup :label="tr('Интерфейс тілі', 'Язык интерфейса', 'Interface language')" name="language">
+        <USelect v-model="language" :options="languages" class="max-w-xs" />
+      </UFormGroup>
+    </UCard>
+    <UCard>
       <form class="space-y-4" @submit.prevent="handleSave">
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1.5">
-            Пайдаланушы аты
+            {{ t('Пайдаланушы аты') }}
           </label>
-          <UInput v-model="name" size="lg" icon="i-heroicons-user" placeholder="Аты-жөніңіз" required />
+          <UInput v-model="name" size="lg" icon="i-heroicons-user" :placeholder="t('Аты-жөніңіз')" required />
         </div>
 
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1.5">
-            Негізгі валюта
+            {{ t('Негізгі валюта') }}
           </label>
           <USelect
             v-model="selectedCurrency"
             size="lg"
             :options="[
-              { label: 'Қазақстан теңгесі (₸ — KZT)', value: 'KZT' },
-              { label: 'АҚШ доллары ($ — USD)', value: 'USD' },
-              { label: 'Еуро (€ — EUR)', value: 'EUR' },
-              { label: 'Ресей рублі (₽ — RUB)', value: 'RUB' },
+              { label: t('Қазақстан теңгесі (₸ — KZT)'), value: 'KZT' },
+              { label: t('АҚШ доллары ($ — USD)'), value: 'USD' },
+              { label: t('Еуро (€ — EUR)'), value: 'EUR' },
+              { label: t('Ресей рублі (₽ — RUB)'), value: 'RUB' },
             ]"
           />
         </div>
@@ -49,7 +54,7 @@
         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200/70 dark:ring-slate-700/60 flex items-start gap-3">
           <UIcon name="i-heroicons-shield-check" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
           <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            Google Gemini API кілті (<code class="font-mono font-semibold">GEMINI_API_KEY</code>) қауіпсіздік мақсатында тек сервердегі <code class="font-mono font-semibold">backend/.env</code> файлында сақталады және браузерге жіберілмейді.
+            {{ tr('Google Gemini API кілті (GEMINI_API_KEY) қауіпсіздік үшін тек сервердегі backend/.env файлында сақталады және браузерге жіберілмейді.', 'Ключ Google Gemini API (GEMINI_API_KEY) из соображений безопасности хранится только в файле backend/.env на сервере и не передаётся в браузер.', 'For security, the Google Gemini API key (GEMINI_API_KEY) is stored only in backend/.env on the server and is never sent to the browser.') }}
           </p>
         </div>
 
@@ -68,7 +73,7 @@
         </div>
 
         <div class="pt-2">
-          <UButton type="submit" color="emerald" size="md" label="Өзгерістерді сақтау" :loading="isSaving" />
+          <UButton type="submit" color="primary" size="md" :label="t('Өзгерістерді сақтау')" :loading="isSaving" />
         </div>
       </form>
     </UCard>
@@ -77,6 +82,8 @@
 
 <script setup lang="ts">
 const auth = useAuth()
+const { tr, language, t } = useLanguage()
+const languages = [{ value: 'kk', label: 'Қазақша' }, { value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }]
 const name = ref(auth.user.value?.name || '')
 const selectedCurrency = ref(auth.user.value?.currency || 'KZT')
 const isSaving = ref(false)
@@ -104,7 +111,7 @@ const handleSave = async () => {
   isError.value = false
   if (!name.value.trim()) {
     isError.value = true
-    statusMsg.value = 'Пайдаланушы аты бос болмауы керек'
+    statusMsg.value = t('Пайдаланушы аты бос болмауы керек')
     return
   }
   isSaving.value = true
@@ -113,10 +120,10 @@ const handleSave = async () => {
       name: name.value.trim(),
       currency: selectedCurrency.value,
     })
-    statusMsg.value = 'Профиль баптаулары сәтті сақталды'
+    statusMsg.value = t('Профиль баптаулары сәтті сақталды')
   } catch (err: any) {
     isError.value = true
-    statusMsg.value = formatApiError(err, 'Баптауларды сақтау мүмкін болмады')
+    statusMsg.value = t(formatApiError(err, t('Баптауларды сақтау мүмкін болмады')))
   } finally {
     isSaving.value = false
   }

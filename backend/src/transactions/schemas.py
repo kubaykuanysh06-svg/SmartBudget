@@ -18,6 +18,7 @@ MAX_AMOUNT = Decimal("999999999999.99")
 
 
 class TransactionCreate(BaseModel):
+    client_request_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     amount: Decimal = Field(gt=0, le=MAX_AMOUNT, decimal_places=2, allow_inf_nan=False)
     type: TransactionType

@@ -42,6 +42,21 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+class ReceiptDetails(BaseModel):
+    total: float | None
+    currency: str | None
+    merchant: str | None
+    purchase_date: str | None
+
+
+class ImageAnalysis(ChatResponse):
+    receipt: ReceiptDetails | None
+
+
+class ImageAnalysisResponse(ImageAnalysis):
+    receipt_request_id: uuid.UUID | None = None
+
+
 class SavingsTip(BaseModel):
     title: str
     description: str

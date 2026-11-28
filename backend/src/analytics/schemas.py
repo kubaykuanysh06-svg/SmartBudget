@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -40,3 +41,28 @@ class PeriodComparison(BaseModel):
     previous_expense: Decimal
     income_change_pct: float
     expense_change_pct: float
+
+
+class ReceiptMerchant(BaseModel):
+    name: str | None
+    total: Decimal
+
+
+class ReceiptBudget(BaseModel):
+    category_name: str | None
+    date_from: date
+    date_to: date
+    limit: Decimal
+    spent: Decimal
+    remaining: Decimal
+
+
+class ReceiptReport(BaseModel):
+    total: Decimal
+    merchants: list[ReceiptMerchant]
+    categories: list[CategoryBreakdown]
+    highest_category: CategoryBreakdown | None
+    budgets: list[ReceiptBudget]
+    previous_total: Decimal | None
+    change: Decimal | None
+    change_pct: Decimal | None

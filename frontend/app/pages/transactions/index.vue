@@ -3,31 +3,23 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Кірістер мен шығыстар</h2>
-        <p class="text-sm text-slate-500">Барлық қаржылық операцияларыңызды сүзгілеп, басқарыңыз</p>
+        <h2 class="sb-page-title">{{ t('Кірістер мен шығыстар') }}</h2>
+        <p class="sb-page-caption">{{ t('Барлық қаржылық операцияларыңызды сүзгілеп, басқарыңыз') }}</p>
       </div>
-      <UButton
-        icon="i-heroicons-plus"
-        color="emerald"
-        size="md"
-        label="Операция қосу"
-        @click="openModal"
-      />
+      <div class="flex flex-wrap gap-2">
+        <UButton icon="i-heroicons-document-arrow-up" color="primary" variant="soft" :label="t('Чек жүктеу')" @click="openReceipt()" />
+        <UButton icon="i-heroicons-plus" color="primary" size="md" :label="t('Операция қосу')" @click="openModal" />
+      </div>
     </div>
 
     <!-- Filtered Summary Strip -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-500">Табылған жазбалар</span>
-        <span class="text-sm font-extrabold tabular-nums text-slate-900 dark:text-white">{{ filteredTransactions.length }}</span>
-      </div>
-      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-500">Кірістер жиыны</span>
-        <span class="text-sm font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">+{{ formatCurrency(filteredIncome) }}</span>
-      </div>
-      <div class="rounded-2xl bg-white dark:bg-slate-900/90 ring-1 ring-slate-200/80 dark:ring-slate-800 px-4 py-3 flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-500">Шығыстар жиыны</span>
-        <span class="text-sm font-extrabold tabular-nums text-rose-600 dark:text-rose-400">-{{ formatCurrency(filteredExpense) }}</span>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div v-for="item in transactionMetrics" :key="item.label" class="sb-panel sb-kpi">
+        <span class="sb-icon-box" :data-tone="item.tone"><UIcon :name="item.icon" class="h-[18px] w-[18px]" /></span>
+        <div class="min-w-0">
+          <p class="sb-kpi-label">{{ item.label }}</p>
+          <p class="sb-kpi-value mt-0.5">{{ item.value }}</p>
+        </div>
       </div>
     </div>
 
@@ -38,7 +30,7 @@
           <UInput
             v-model="searchQuery"
             icon="i-heroicons-magnifying-glass"
-            placeholder="Сипаттама немесе дүкен бойынша іздеу..."
+            :placeholder="t('Сипаттама немесе дүкен бойынша іздеу...')"
           />
         </div>
 
@@ -61,15 +53,15 @@
           </div>
 
           <div class="flex items-center gap-2 flex-1 sm:flex-initial">
-            <UInput v-model="startDate" type="date" class="w-36 sm:w-40" title="Басталу күні" />
-            <UInput v-model="endDate" type="date" class="w-36 sm:w-40" title="Аяқталу күні" />
+            <UInput v-model="startDate" type="date" class="w-36 sm:w-40" :title="t('Басталу күні')" />
+            <UInput v-model="endDate" type="date" class="w-36 sm:w-40" :title="t('Аяқталу күні')" />
             <UButton
               v-if="hasActiveFilters"
               color="gray"
               variant="ghost"
               icon="i-heroicons-x-mark"
               size="sm"
-              title="Сүзгіні тазалау"
+              :title="t('Сүзгіні тазалау')"
               @click="resetFilters"
             />
           </div>
@@ -83,8 +75,8 @@
         <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-heroicons-inbox" class="w-6 h-6" />
         </div>
-        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Операциялар табылмады</p>
-        <p class="text-xs text-slate-500 mt-1">Жаңа жазба қосыңыз немесе сүзгі шарттарын өзгертіңіз</p>
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ t('Операциялар табылмады') }}</p>
+        <p class="text-xs text-slate-500 mt-1">{{ t('Жаңа жазба қосыңыз немесе сүзгі шарттарын өзгертіңіз') }}</p>
       </div>
 
       <div v-else class="divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -101,8 +93,16 @@
               <UIcon :name="visualFor(item).icon" class="w-5 h-5" />
             </div>
             <div class="min-w-0">
-              <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">
-                {{ item.description || 'Сипаттамасыз' }}
+              <button
+                v-if="item.ai_metadata?.receipt"
+                type="button"
+                class="max-w-full truncate text-left text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+                @click="openReceipt(item)"
+              >
+                {{ descriptionLabel(item) }}
+              </button>
+              <p v-else class="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                {{ descriptionLabel(item) || t('Сипаттамасыз') }}
               </p>
               <div class="flex flex-wrap items-center gap-2 mt-1">
                 <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
@@ -130,7 +130,7 @@
               variant="ghost"
               icon="i-heroicons-trash"
               size="xs"
-              title="Операцияны өшіру"
+              :title="t('Операцияны өшіру')"
               @click="handleDelete(item.id)"
             />
           </div>
@@ -138,12 +138,23 @@
       </div>
     </UCard>
 
+    <ReceiptEditor
+      v-if="receiptOpen"
+      :transaction="selectedReceipt"
+      :file="receiptUploadFile"
+      :categories="expenseCategories"
+      @close="receiptOpen = false"
+      @saved="refreshReceiptTransactions"
+    />
+
     <!-- Create Operation Modal -->
-    <UModal v-model="isModalOpen">
+    <UModal v-model="isModalOpen" :prevent-close="isSubmitting">
       <div class="p-6 space-y-5">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Жаңа операция</h3>
-          <UButton color="gray" variant="ghost" icon="i-heroicons-x-mark" size="xs" @click="isModalOpen = false" />
+          <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">
+            {{ t('Жаңа операция') }}
+          </h3>
+          <UButton color="gray" variant="ghost" icon="i-heroicons-x-mark" size="xs" :disabled="isSubmitting" @click="isModalOpen = false" />
         </div>
 
         <!-- Segmented Expense / Income Toggle -->
@@ -159,7 +170,7 @@
             @click="newForm.type = 'expense'"
           >
             <UIcon name="i-heroicons-arrow-up-right" class="w-4 h-4" />
-            <span>Шығыс</span>
+            <span>{{ t('Шығыс') }}</span>
           </button>
           <button
             type="button"
@@ -172,51 +183,52 @@
             @click="newForm.type = 'income'"
           >
             <UIcon name="i-heroicons-arrow-down-left" class="w-4 h-4" />
-            <span>Кіріс</span>
+            <span>{{ t('Кіріс') }}</span>
           </button>
         </div>
 
         <div class="space-y-3.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+            <label for="transaction-amount" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
               Сома ({{ currency }})
             </label>
             <UInput
+              id="transaction-amount"
               v-model="newForm.amount"
               type="number"
               size="lg"
               step="0.01"
               min="0.01"
-              placeholder="Мысалы: 8000"
+              :placeholder="t('Мысалы: 8000')"
             />
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="transaction-category">
-              Санат
+              {{ t('Санат') }}
             </label>
             <USelect id="transaction-category" v-model="newForm.category_id" :options="categoryOptions" />
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Сипаттама / Тауар атауы
+              {{ t('Сипаттама / Тауар атауы') }}
             </label>
-            <UInput v-model="newForm.description" placeholder="Мысалы: Апталық азық-түлік" />
+            <UInput v-model="newForm.description" :placeholder="t('Мысалы: Апталық азық-түлік')" />
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                Дүкен / Орын
+              <label for="transaction-merchant" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                {{ t('Дүкен / Орын') }}
               </label>
-              <UInput v-model="newForm.merchant" placeholder="Magnum, Kaspi, Small" />
+              <UInput id="transaction-merchant" v-model="newForm.merchant" placeholder="Magnum, Kaspi, Small" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                Күні
+              <label for="transaction-date" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                {{ t('Күні') }}
               </label>
-              <UInput v-model="newForm.transaction_date" type="date" />
+              <UInput id="transaction-date" v-model="newForm.transaction_date" type="date" />
             </div>
           </div>
         </div>
@@ -231,8 +243,8 @@
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <UButton color="gray" variant="ghost" label="Бас тарту" @click="isModalOpen = false" />
-          <UButton color="emerald" label="Сақтау" :loading="isSubmitting" @click="handleSubmit" />
+          <UButton color="gray" variant="ghost" :label="t('Бас тарту')" :disabled="isSubmitting" @click="isModalOpen = false" />
+          <UButton color="primary" :label="t('Сақтау')" :loading="isSubmitting" @click="handleSubmit" />
         </div>
       </div>
     </UModal>
@@ -243,25 +255,32 @@
 import dayjs from 'dayjs'
 import type { CategoryTree, Transaction, TransactionType } from '~~/shared/types'
 
+const { t, categoryLabel, descriptionLabel } = useLanguage()
 const route = useRoute()
 const router = useRouter()
 const transactions = useTransactions()
 const api = useApi()
+const toast = useToast()
+const revision = useState('receipt-revision', () => 0)
+const { currency, formatCurrency } = useCurrencyFormat()
 const categoryTree = ref<CategoryTree[]>([])
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 const formError = ref('')
+const receiptOpen = ref(false)
+const selectedReceipt = ref<Transaction | null>(null)
+const receiptUploadFile = shallowRef<File | null>(null)
 
 const searchQuery = ref('')
 const selectedType = ref<'all' | 'expense' | 'income'>('all')
 const startDate = ref('')
 const endDate = ref('')
 
-const typeFilterOptions: { label: string; value: 'all' | 'expense' | 'income' }[] = [
-  { label: 'Барлығы', value: 'all' },
-  { label: 'Шығыстар', value: 'expense' },
-  { label: 'Кірістер', value: 'income' },
-]
+const typeFilterOptions = computed(() => [
+  { label: t('Барлығы'), value: 'all' },
+  { label: t('Шығыстар'), value: 'expense' },
+  { label: t('Кірістер'), value: 'income' },
+] as const)
 
 const newForm = ref({
   type: 'expense' as TransactionType,
@@ -293,22 +312,57 @@ function flattenCategories(tree: CategoryTree[]): CategoryTree[] {
 }
 
 const categories = computed(() => flattenCategories(categoryTree.value))
+const expenseCategories = computed(() => categories.value.filter(category => category.type === 'expense'))
+
+const openReceipt = (transaction: Transaction | null = null, file: File | null = null) => {
+  selectedReceipt.value = transaction
+  receiptUploadFile.value = file
+  receiptOpen.value = true
+}
+
+const refreshReceiptTransactions = (transaction: Transaction) => {
+  const items = transactions.transactions.value
+  const index = items.findIndex(item => item.id === transaction.id)
+  if (index >= 0) items[index] = transaction
+  else items.unshift(transaction)
+}
+
+async function loadLinkedReceipt(id: unknown) {
+  if (typeof id !== 'string' || !/^[\da-f-]{36}$/i.test(id)) return
+  try {
+    const receipt = await api.fetch<Transaction>(`/transactions/${id}`)
+    if (route.query.receipt === id && receipt.ai_metadata?.receipt) openReceipt(receipt)
+  } catch {
+    if (route.query.receipt === id) toast.add({ title: t('Чекті ашу мүмкін болмады.'), color: 'red' })
+  } finally {
+    if (route.query.receipt === id) void router.replace({ query: { ...route.query, receipt: undefined } })
+  }
+}
+onMounted(() => { void loadLinkedReceipt(route.query.receipt) })
+watch(() => route.query.receipt, loadLinkedReceipt)
 const categoryOptions = computed(() => [
-  { label: 'Санатсыз', value: '' },
+  { label: t('Санатсыз'), value: '' },
   ...categories.value
     .filter(category => category.type === newForm.value.type)
     .map(category => ({
-      label: translateCategoryName(category.name),
+      label: categoryLabel(category.name),
       value: category.id,
     })),
 ])
 
 watch(() => newForm.value.type, () => { newForm.value.category_id = '' })
 watch(() => route.query.action, (action) => {
+  if (action !== 'new' && action !== 'receipt' && action !== 'upload') return
   if (action === 'new') {
     openModal()
-    router.replace({ query: { ...route.query, action: undefined } })
+  } else if (action === 'upload') {
+    openReceipt()
+  } else if (transactions.receiptFile.value) {
+    const file = transactions.receiptFile.value
+    transactions.receiptFile.value = null
+    openReceipt(null, file)
   }
+  router.replace({ query: { ...route.query, action: undefined } })
 }, { immediate: true })
 
 const categoryFor = (id: string | null) => categories.value.find(category => category.id === id)
@@ -317,7 +371,7 @@ const resolvedCategoryName = (item: Transaction) =>
   item.category?.name || categoryFor(item.category_id)?.name || null
 
 const resolvedCategoryLabel = (item: Transaction) =>
-  translateCategoryName(resolvedCategoryName(item), item.type === 'income' ? 'Кіріс' : 'Жалпы')
+  categoryLabel(resolvedCategoryName(item), item.type === 'income' ? 'Кіріс' : 'Жалпы')
 
 const visualFor = (item: Transaction) =>
   getCategoryVisual(resolvedCategoryName(item), item.type)
@@ -349,27 +403,33 @@ const filteredExpense = computed(() =>
     .reduce((sum, t) => sum + Number(t.amount || 0), 0),
 )
 
-const { currency, formatCurrency } = useCurrencyFormat()
+const transactionMetrics = computed(() => [
+  { label: t('Табылған жазбалар'), value: String(filteredTransactions.value.length), icon: 'i-heroicons-rectangle-stack', tone: 'violet' },
+  { label: t('Кірістер жиыны'), value: formatCurrency(filteredIncome.value), icon: 'i-heroicons-arrow-down-left', tone: 'mint' },
+  { label: t('Шығыстар жиыны'), value: formatCurrency(filteredExpense.value), icon: 'i-heroicons-arrow-up-right', tone: 'peach' },
+])
 
 const handleDelete = async (id: string) => {
-  if (confirm('Бұл операцияны өшіруді растайсыз ба?')) {
+  if (confirm(t('Бұл операцияны өшіруді растайсыз ба?'))) {
     await transactions.deleteTransaction(id)
+    revision.value++
   }
 }
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return
   formError.value = ''
   const moneyErr = validateMoneyInput(newForm.value.amount)
   if (moneyErr) {
-    formError.value = moneyErr
+    formError.value = t(moneyErr)
     return
   }
   if (!newForm.value.description.trim()) {
-    formError.value = 'Операция сипаттамасын енгізіңіз'
+    formError.value = t('Операция сипаттамасын енгізіңіз')
     return
   }
   if (!newForm.value.transaction_date) {
-    formError.value = 'Операция күнін көрсетіңіз'
+    formError.value = t('Операция күнін көрсетіңіз')
     return
   }
 
@@ -388,7 +448,7 @@ const handleSubmit = async () => {
     newForm.value.description = ''
     newForm.value.merchant = ''
   } catch (err: any) {
-    formError.value = formatApiError(err, 'Операцияны сақтау мүмкін болмады')
+    formError.value = t(formatApiError(err, t('Операцияны сақтау мүмкін болмады')))
   } finally {
     isSubmitting.value = false
   }

@@ -18,10 +18,12 @@ import type { TrendPoint } from '~~/shared/types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
+const { t, locale, monthLabel } = useLanguage()
 const props = withDefaults(
   defineProps<{
     points: TrendPoint[]
     height?: number
+    compact?: boolean
   }>(),
   {
     height: 270,
@@ -30,22 +32,23 @@ const props = withDefaults(
 
 const colorMode = useColorMode()
 const { formatCurrency } = useCurrencyFormat()
+const tickNumber = computed(() => new Intl.NumberFormat(locale.value, { notation: 'compact', maximumFractionDigits: 1 }))
 
 const chartData = computed(() => ({
-  labels: props.points.map(p => formatKzMonth(p.month)),
+  labels: props.points.map(p => monthLabel(p.month, props.compact)),
   datasets: [
     {
-      label: 'Кіріс',
+      label: t('Кіріс'),
       data: props.points.map(p => Number(p.income || 0)),
-      backgroundColor: '#10b981',
-      borderRadius: 8,
+      backgroundColor: '#43b995',
+      borderRadius: 5,
       maxBarThickness: 32,
     },
     {
-      label: 'Шығыс',
+      label: t('Шығыс'),
       data: props.points.map(p => Number(p.expense || 0)),
-      backgroundColor: '#f43f5e',
-      borderRadius: 8,
+      backgroundColor: '#8960ed',
+      borderRadius: 5,
       maxBarThickness: 32,
     },
   ],
@@ -53,8 +56,8 @@ const chartData = computed(() => ({
 
 const chartOptions = computed(() => {
   const isDark = colorMode.value === 'dark'
-  const tickColor = isDark ? '#94a3b8' : '#64748b'
-  const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'
+  const tickColor = isDark ? '#aca5c3' : '#625e78'
+  const gridColor = isDark ? '#ffffff13' : '#ece9f6'
 
   return {
     responsive: true,
@@ -72,7 +75,7 @@ const chartOptions = computed(() => {
           usePointStyle: true,
           pointStyle: 'circle',
           boxWidth: 8,
-          font: { size: 12, weight: 600 },
+          font: { size: props.compact ? 10 : 12, weight: 600 },
         },
       },
       tooltip: {
@@ -89,15 +92,16 @@ const chartOptions = computed(() => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: tickColor, font: { size: 11 } },
+        ticks: { color: tickColor, font: { size: props.compact ? 9 : 11 } },
       },
       y: {
         beginAtZero: true,
         grid: { color: gridColor },
         ticks: {
           color: tickColor,
-          font: { size: 11 },
-          callback: (val: any) => formatCurrency(Number(val)),
+          font: { size: props.compact ? 9 : 11 },
+          maxTicksLimit: props.compact ? 4 : 7,
+          callback: (val: string | number) => props.compact ? tickNumber.value.format(Number(val)) : formatCurrency(Number(val)),
         },
       },
     },

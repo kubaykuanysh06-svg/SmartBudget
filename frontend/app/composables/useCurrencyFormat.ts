@@ -1,7 +1,8 @@
 export const useCurrencyFormat = () => {
   const { user } = useAuth()
+  const { locale } = useLanguage()
   const currency = computed(() => user.value?.currency || 'KZT')
-  const formatter = computed(() => new Intl.NumberFormat('ru-RU', {
+  const formatter = computed(() => new Intl.NumberFormat(locale.value, {
     style: 'currency',
     currencyDisplay: 'narrowSymbol',
     currency: /^[A-Za-z]{3}$/.test(currency.value) ? currency.value : 'KZT',

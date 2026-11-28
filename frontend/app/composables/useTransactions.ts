@@ -3,6 +3,7 @@ import type { Transaction, TransactionCreate } from '~~/shared/types'
 export const useTransactions = () => {
   const api = useApi()
   const transactions = useState<Transaction[]>('transactions', () => [])
+  const receiptFile = useState<File | null>('receipt-file', () => null)
   const loading = ref(false)
 
   const fetchTransactions = async (params: Record<string, any> = {}) => {
@@ -23,7 +24,9 @@ export const useTransactions = () => {
       method: 'POST',
       body: payload,
     })
-    transactions.value.unshift(data)
+    if (!transactions.value.some(transaction => transaction.id === data.id)) {
+      transactions.value.unshift(data)
+    }
     return data
   }
 
@@ -34,6 +37,7 @@ export const useTransactions = () => {
 
   return {
     transactions,
+    receiptFile,
     loading,
     fetchTransactions,
     createTransaction,

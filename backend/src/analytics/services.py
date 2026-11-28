@@ -13,12 +13,19 @@ from src.analytics.schemas import (
     CategoryBreakdown,
     ForecastResponse,
     PeriodComparison,
+    ReceiptBudget,
+    ReceiptMerchant,
+    ReceiptReport,
     SummaryResponse,
     TrendPoint,
 )
+from src.budgets.services import effective_window, list_budgets
 from src.categories.models import Category
+from src.core.exceptions import BadRequest
 from src.transactions.models import Transaction, TransactionType
-from src.transactions.repositories import monthly_totals, sum_by_type
+from src.transactions.repositories import (
+    category_amount_rows, daily_expenses_in_range, monthly_totals, sum_by_type,
+)
 
 
 async def summary(
@@ -55,23 +62,20 @@ async def by_category(
     date_from: date | None = None,
     date_to: date | None = None,
     txn_type: TransactionType | None = TransactionType.expense,
+    *,
+    only_receipts: bool = False,
 ) -> list[CategoryBreakdown]:
+    amounts = category_amount_rows(user_id, date_from, date_to, txn_type, only_receipts=only_receipts)
     stmt = (
         select(
-            Transaction.category_id,
+            Category.id,
             Category.name,
-            func.sum(Transaction.amount),
+            func.sum(amounts.c.amount),
         )
-        .outerjoin(Category, Transaction.category_id == Category.id)
-        .where(Transaction.user_id == user_id)
-        .group_by(Transaction.category_id, Category.name)
+        .select_from(amounts)
+        .outerjoin(Category, amounts.c.category_id == Category.id)
+        .group_by(Category.id, Category.name)
     )
-    if txn_type:
-        stmt = stmt.where(Transaction.type == txn_type)
-    if date_from:
-        stmt = stmt.where(Transaction.transaction_date >= date_from)
-    if date_to:
-        stmt = stmt.where(Transaction.transaction_date <= date_to)
 
     raw_rows = (await db.execute(stmt)).all()
     rows = [(r[0], r[1], Decimal(str(r[2]))) for r in raw_rows]
@@ -174,4 +178,76 @@ async def compare_periods(
         previous_expense=prev_expense,
         income_change_pct=_pct(cur_income, prev_income),
         expense_change_pct=_pct(cur_expense, prev_expense),
+    )
+
+
+async def receipt_report(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+    previous_from: date | None = None,
+    previous_to: date | None = None,
+    *,
+    budget_receipts_only: bool = True,
+) -> ReceiptReport:
+    if date_from > date_to or (previous_from is None) != (previous_to is None):
+        raise BadRequest("Invalid report date range")
+    if previous_from and previous_to and not previous_from <= previous_to < date_from:
+        raise BadRequest("Invalid previous date range")
+
+    criteria = (
+        Transaction.user_id == user_id,
+        Transaction.type == TransactionType.expense,
+        Transaction.ai_metadata["receipt"].is_not(None),
+    )
+    merchant = func.lower(func.trim(Transaction.merchant))
+    store_rows = await db.execute(
+        select(func.min(Transaction.merchant), func.sum(Transaction.amount))
+        .where(*criteria, Transaction.transaction_date.between(date_from, date_to))
+        .group_by(merchant)
+        .order_by(func.sum(Transaction.amount).desc(), merchant)
+    )
+    merchants = [ReceiptMerchant(name=name, total=amount) for name, amount in store_rows]
+    total = sum((row.total for row in merchants), Decimal(0))
+    categories = await by_category(db, user_id, date_from, date_to, only_receipts=True)
+
+    budgets = await list_budgets(db, user_id)
+    anchor = min(date_to, date.today())
+    windows = [
+        (budget, start, end)
+        for budget in budgets
+        for start, end, active in [effective_window(budget, anchor)]
+        if active and start <= date_to and end >= date_from
+    ]
+    budget_rows = []
+    if windows:
+        daily = await daily_expenses_in_range(
+            db, user_id, min(start for _, start, _ in windows),
+            max(end for _, _, end in windows), only_receipts=budget_receipts_only,
+        )
+        for budget, start, end in windows:
+            spent = sum((
+                amount for category_id, day, amount in daily
+                if start <= day <= end and (budget.category_id is None or category_id == budget.category_id)
+            ), Decimal(0))
+            budget_rows.append(ReceiptBudget(
+                category_name=budget.category.name if budget.category else None,
+                date_from=start, date_to=end, limit=budget.limit_amount, spent=spent,
+                remaining=budget.limit_amount - spent,
+            ))
+
+    previous = None
+    if previous_from and previous_to:
+        previous = await db.scalar(
+            select(func.sum(Transaction.amount)).where(
+                *criteria, Transaction.transaction_date.between(previous_from, previous_to)
+            )
+        )
+    change = total - previous if previous is not None else None
+    change_pct = (change / previous * 100).quantize(Decimal("0.01")) if previous and change is not None else None
+    return ReceiptReport(
+        total=total, merchants=merchants, categories=categories,
+        highest_category=categories[0] if categories else None,
+        budgets=budget_rows, previous_total=previous, change=change, change_pct=change_pct,
     )

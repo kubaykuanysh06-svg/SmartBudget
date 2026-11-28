@@ -46,7 +46,14 @@ async def create_transaction(
     db: AsyncSession, user_id: uuid.UUID, data: dict
 ) -> TransactionResponse:
     await _ensure_user_category(db, data.get("category_id"), user_id, data["type"])
-    txn = await repo.create(db, user_id=user_id, data=data)
+    request_id = data.get("client_request_id")
+    values = {key: value for key, value in data.items() if key != "client_request_id"}
+    if request_id is None:
+        txn = await repo.create(db, user_id=user_id, data=values)
+    else:
+        txn = await repo.create_once(db, user_id=user_id, txn_id=request_id, data=values)
+        if txn is None:
+            raise BadRequest("Transaction request ID is unavailable")
     return TransactionResponse.model_validate(txn)
 
 
@@ -65,6 +72,8 @@ async def update_transaction(
     txn = await repo.get_by_id(db, txn_id, user_id)
     if not txn:
         raise NotFound("Transaction not found")
+    if (txn.ai_metadata or {}).get("receipt"):
+        raise BadRequest("Edit receipt transactions through the receipt form")
     if "category_id" in data or data.get("type") is not None:
         category_id = data["category_id"] if "category_id" in data else txn.category_id
         await _ensure_user_category(db, category_id, user_id, data.get("type") or txn.type)

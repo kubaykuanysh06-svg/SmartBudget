@@ -3,19 +3,20 @@
     <!-- Header & Segmented Period Selector -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Қаржылық аналитика</h2>
-        <p class="text-sm text-slate-500">Шығыстар құрылымын, үнемдеу деңгейін және айлық динамиканы талдау</p>
+        <h2 class="sb-page-title">{{ t('Қаржылық аналитика') }}</h2>
+        <p class="sb-page-caption">{{ t('Шығыстар құрылымын, үнемдеу деңгейін және айлық динамиканы талдау') }}</p>
       </div>
 
-      <div class="inline-flex p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800/80 ring-1 ring-slate-300/60 dark:ring-slate-700/60 self-start">
+      <div class="inline-flex max-w-full flex-wrap self-start rounded-xl bg-[var(--sb-surface)] p-1 ring-1 ring-[var(--sb-line)]" :aria-label="t('Есеп кезеңі')">
         <button
           v-for="opt in periodOptions"
           :key="opt.value"
           type="button"
+          :aria-pressed="selectedPeriod === opt.value"
           class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
           :class="
             selectedPeriod === opt.value
-              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+              ? 'bg-[var(--sb-accent-soft)] text-[var(--sb-accent)]'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           "
           @click="selectedPeriod = opt.value"
@@ -28,21 +29,21 @@
     <!-- KPI Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Кезеңдегі кіріс</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Кезеңдегі кіріс') }}</p>
         <p class="text-xl xl:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1.5 tabular-nums truncate">
           +{{ formatCurrency(summary.total_income) }}
         </p>
       </UCard>
 
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Кезеңдегі шығыс</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Кезеңдегі шығыс') }}</p>
         <p class="text-xl xl:text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-1.5 tabular-nums truncate">
           -{{ formatCurrency(summary.total_expense) }}
         </p>
       </UCard>
 
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Таза үнем (дельта)</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Таза үнем (дельта)') }}</p>
         <p
           class="text-xl xl:text-2xl font-extrabold mt-1.5 tabular-nums truncate"
           :class="Number(summary.net) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
@@ -52,12 +53,14 @@
       </UCard>
 
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Жинақ нормасы</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Жинақ нормасы') }}</p>
         <p class="text-xl xl:text-2xl font-extrabold text-teal-600 dark:text-teal-400 mt-1.5 tabular-nums truncate">
           {{ savingsRate.toFixed(1) }}%
         </p>
       </UCard>
     </div>
+
+    <DeepReceiptAnalytics :month="receiptMonth" />
 
     <!-- Charts Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -66,14 +69,14 @@
         <template #header>
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="font-bold text-base text-slate-900 dark:text-white">Айлар бойынша кіріс пен шығыс</h3>
-              <p class="text-xs text-slate-500">Айлық ақша ағынының салыстырмалы динамикасы</p>
+              <h3 class="font-bold text-base text-slate-900 dark:text-white">{{ t('Айлар бойынша кіріс пен шығыс') }}</h3>
+              <p class="text-xs text-slate-500">{{ t('Айлық ақша ағынының салыстырмалы динамикасы') }}</p>
             </div>
           </div>
         </template>
 
         <div v-if="trends.length === 0" class="py-16 text-center text-sm text-slate-400">
-          Көрсетілген кезең бойынша айлық деректер жоқ
+          {{ t('Көрсетілген кезең бойынша айлық деректер жоқ') }}
         </div>
         <div v-else class="space-y-4">
           <ClientOnly>
@@ -86,13 +89,13 @@
       <UCard class="lg:col-span-5">
         <template #header>
           <div>
-            <h3 class="font-bold text-base text-slate-900 dark:text-white">Санаттар бойынша шығыс құрылымы</h3>
-            <p class="text-xs text-slate-500">Ең көп жұмсалған бағыттар</p>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">{{ t('Санаттар бойынша шығыс құрылымы') }}</h3>
+            <p class="text-xs text-slate-500">{{ t('Ең көп жұмсалған бағыттар') }}</p>
           </div>
         </template>
 
         <div v-if="categories.length === 0" class="py-16 text-center text-sm text-slate-400">
-          Таңдалған кезеңде шығыстар тіркелмеген
+          {{ t('Таңдалған кезеңде шығыстар тіркелмеген') }}
         </div>
         <div v-else class="space-y-5">
           <ClientOnly>
@@ -108,7 +111,7 @@
                     :style="{ backgroundColor: getCategoryVisual(cat.category_name, 'expense').hex }"
                   />
                   <span class="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                    {{ translateCategoryName(cat.category_name, 'Санатсыз') }}
+                    {{ categoryLabel(cat.category_name, 'Санатсыз') }}
                   </span>
                 </div>
                 <span class="tabular-nums text-slate-500 shrink-0">
@@ -116,7 +119,7 @@
                   ({{ cat.percentage.toFixed(1) }}%)
                 </span>
               </div>
-              <UProgress :value="cat.percentage" color="emerald" size="xs" />
+              <UProgress :value="cat.percentage" color="primary" size="xs" />
             </div>
           </div>
         </div>
@@ -129,17 +132,26 @@
 import dayjs from 'dayjs'
 import type { CategoryBreakdown, TrendPoint } from '~~/shared/types'
 
+const { t, categoryLabel, monthLabel } = useLanguage()
 const analytics = useAnalytics()
-const selectedPeriod = ref<'month' | '3months' | 'year'>('month')
+const route = useRoute()
+type AnalyticsPeriod = 'month' | '3months' | 'year' | 'receipt-month'
+const receiptMonth = computed(() => {
+  const month = route.query.month
+  return typeof month === 'string' && /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(month) ? month : ''
+})
+const selectedPeriod = ref<AnalyticsPeriod>(receiptMonth.value ? 'receipt-month' : 'month')
 
-const periodOptions: { label: string; value: 'month' | '3months' | 'year' }[] = [
-  { label: 'Осы ай', value: 'month' },
-  { label: 'Соңғы 3 ай', value: '3months' },
-  { label: 'Осы жыл', value: 'year' },
-]
+const periodOptions = computed<{ label: string; value: AnalyticsPeriod }[]>(() => [
+  { label: t('Осы ай'), value: 'month' },
+  { label: t('Соңғы 3 ай'), value: '3months' },
+  { label: t('Осы жыл'), value: 'year' },
+  ...(receiptMonth.value ? [{ label: monthLabel(receiptMonth.value), value: 'receipt-month' as const }] : []),
+])
 
 const categories = ref<CategoryBreakdown[]>([])
 const trends = ref<TrendPoint[]>([])
+let loadVersion = 0
 const summary = ref({
   total_income: 0,
   total_expense: 0,
@@ -154,8 +166,12 @@ const savingsRate = computed(() => {
 
 const { formatCurrency } = useCurrencyFormat()
 
-function periodRange(period: 'month' | '3months' | 'year') {
+function periodRange(period: AnalyticsPeriod) {
   const now = dayjs()
+  if (period === 'receipt-month' && receiptMonth.value) {
+    const date = dayjs(`${receiptMonth.value}-01`)
+    return { date_from: date.format('YYYY-MM-DD'), date_to: date.endOf('month').format('YYYY-MM-DD'), months: 6 }
+  }
   if (period === '3months') {
     return {
       date_from: now.subtract(2, 'month').startOf('month').format('YYYY-MM-DD'),
@@ -178,17 +194,20 @@ function periodRange(period: 'month' | '3months' | 'year') {
 }
 
 const loadAnalytics = async () => {
+  const version = ++loadVersion
   const { date_from, date_to, months } = periodRange(selectedPeriod.value)
   const [sumRes, catRes, trendRes] = await Promise.allSettled([
     analytics.getSummary({ date_from, date_to }),
     analytics.getByCategory({ date_from, date_to }),
     analytics.getTrends({ months }),
   ])
+  if (version !== loadVersion) return
   if (sumRes.status === 'fulfilled') summary.value = sumRes.value
   if (catRes.status === 'fulfilled') categories.value = catRes.value
   if (trendRes.status === 'fulfilled') trends.value = trendRes.value
 }
 
-watch(selectedPeriod, loadAnalytics)
+watch(receiptMonth, month => { selectedPeriod.value = month ? 'receipt-month' : 'month' })
+watch([selectedPeriod, receiptMonth], loadAnalytics)
 onMounted(loadAnalytics)
 </script>

@@ -1,4 +1,4 @@
-import type { SummaryAnalytics, CategoryBreakdown, TrendPoint } from '~~/shared/types'
+import type { SummaryAnalytics, CategoryBreakdown, ReceiptReport, TrendPoint } from '~~/shared/types'
 
 export const useAnalytics = () => {
   const api = useApi()
@@ -15,9 +15,13 @@ export const useAnalytics = () => {
     return await api.fetch<TrendPoint[]>('/analytics/trends', { params })
   }
 
+  const getReceiptReport = (params: Record<string, string>) =>
+    api.fetch<ReceiptReport>('/analytics/receipts', { params })
+
   return {
     getSummary,
     getByCategory,
     getTrends,
+    getReceiptReport,
   }
 }

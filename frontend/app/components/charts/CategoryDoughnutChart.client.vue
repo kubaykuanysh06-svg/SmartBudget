@@ -2,7 +2,7 @@
   <div class="relative flex items-center justify-center" :style="{ height: `${height}px` }">
     <Doughnut :data="chartData" :options="chartOptions" />
     <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Барлығы</span>
+      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{{ t('Барлығы') }}</span>
       <span class="text-sm sm:text-base font-extrabold tabular-nums text-slate-900 dark:text-white mt-0.5">
         {{ formatCurrency(totalSum) }}
       </span>
@@ -17,6 +17,7 @@ import type { CategoryBreakdown } from '~~/shared/types'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
+const { categoryLabel } = useLanguage()
 const props = withDefaults(
   defineProps<{
     items: CategoryBreakdown[]
@@ -34,7 +35,7 @@ const totalSum = computed(() =>
 )
 
 const chartData = computed(() => ({
-  labels: props.items.map(i => translateCategoryName(i.category_name, 'Санатсыз')),
+  labels: props.items.map(i => categoryLabel(i.category_name, 'Санатсыз')),
   datasets: [
     {
       data: props.items.map(i => Number(i.total || 0)),

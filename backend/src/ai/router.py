@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.ai import schemas, services
@@ -11,6 +13,7 @@ from src.categories.services import list_categories
 from src.core.dependencies import get_current_user, get_db
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 
 @router.get("/insights", response_model=list[schemas.InsightResponse])
@@ -58,6 +61,28 @@ async def chat_endpoint(
         str(s.total_income),
         str(s.total_expense),
     )
+
+
+@router.post("/analyze-image", response_model=schemas.ImageAnalysisResponse)
+async def analyze_image(
+    image: Annotated[UploadFile, File()],
+    message: Annotated[str, Form(max_length=2000)] = "",
+    _current_user=Depends(get_current_user),
+):
+    data = await image.read(MAX_PHOTO_BYTES + 1)
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo exceeds 5 MiB")
+
+    if data.startswith(b"\xff\xd8\xff"):
+        mime_type = "image/jpeg"
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        mime_type = "image/png"
+    elif data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        mime_type = "image/webp"
+    else:
+        raise HTTPException(status_code=415, detail="Expected a JPEG, PNG, or WebP photo")
+
+    return await services.analyze_image(data, mime_type, message)
 
 
 @router.get("/savings-tips", response_model=list[schemas.SavingsTip])

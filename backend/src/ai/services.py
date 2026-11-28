@@ -17,12 +17,15 @@ from src.ai.models import AiInsight
 from src.ai.prompts import (
     CATEGORIZE_PROMPT,
     CHAT_SYSTEM_PROMPT,
+    IMAGE_ANALYSIS_PROMPT,
     PRICE_ANALYSIS_PROMPT,
     SAVINGS_TIPS_PROMPT,
 )
 from src.ai.schemas import (
     CategorizeSuggestion,
     ChatResponse,
+    ImageAnalysis,
+    ImageAnalysisResponse,
     InsightResponse,
     PriceAnalysis,
     SavingsTip,
@@ -36,7 +39,7 @@ T = TypeVar("T")
 
 
 async def _call_gemini(
-    prompt: str,
+    contents: str | list[types.Part],
     *,
     config: types.GenerateContentConfig | None = None,
 ) -> str:
@@ -49,7 +52,7 @@ async def _call_gemini(
         async with genai.Client(api_key=api_key).aio as client:
             response = await client.models.generate_content(
                 model=settings.GEMINI_MODEL,
-                contents=prompt,
+                contents=contents,
                 config=config,
             )
     except errors.APIError:
@@ -61,13 +64,19 @@ async def _call_gemini(
     return response.text
 
 
-async def _call_gemini_structured(prompt: str, schema: type[T] | object) -> T:
+async def _call_gemini_structured(
+    contents: str | list[types.Part],
+    schema: type[T] | object,
+    *,
+    system_instruction: str | None = None,
+) -> T:
     """Call Gemini with JSON structured output and validate with Pydantic."""
     config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
         response_mime_type="application/json",
         response_schema=schema,
     )
-    raw = await _call_gemini(prompt, config=config)
+    raw = await _call_gemini(contents, config=config)
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")[1:]
@@ -157,3 +166,18 @@ async def chat(
     config = types.GenerateContentConfig(system_instruction=system)
     raw = await _call_gemini(message, config=config)
     return ChatResponse(reply=raw.strip())
+
+
+async def analyze_image(data: bytes, mime_type: str, message: str) -> ImageAnalysisResponse:
+    parts = [
+        types.Part.from_bytes(data=data, mime_type=mime_type),
+        types.Part.from_text(text=message.strip() or "Осы фотоны талдап беріңіз."),
+    ]
+    analysis = await _call_gemini_structured(
+        parts, ImageAnalysis, system_instruction=IMAGE_ANALYSIS_PROMPT
+    )
+    return ImageAnalysisResponse(
+        reply=analysis.reply,
+        receipt=analysis.receipt,
+        receipt_request_id=uuid.uuid4() if analysis.receipt else None,
+    )

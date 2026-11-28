@@ -1,4 +1,4 @@
-import type { AiInsight, PriceAnalysis } from '~~/shared/types'
+import type { AiInsight, ImageAnalysis, PriceAnalysis } from '~~/shared/types'
 
 export const useAiInsights = () => {
   const api = useApi()
@@ -23,6 +23,13 @@ export const useAiInsights = () => {
     })
   }
 
+  const analyzeImage = async (image: File, message: string) => {
+    const body = new FormData()
+    body.set('image', image)
+    if (message) body.set('message', message)
+    return await api.fetch<ImageAnalysis>('/ai/analyze-image', { method: 'POST', body })
+  }
+
   const analyzePrice = async (item: { description: string; merchant?: string; amount: number }) => {
     return await api.fetch<PriceAnalysis>('/ai/analyze-price', {
       method: 'POST',
@@ -35,6 +42,7 @@ export const useAiInsights = () => {
     loading,
     fetchInsights,
     sendChatMessage,
+    analyzeImage,
     analyzePrice,
   }
 }

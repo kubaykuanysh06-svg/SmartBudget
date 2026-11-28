@@ -39,7 +39,108 @@ export interface Transaction {
   created_at: string
 }
 
+export interface ProductDetails {
+  brand?: string
+  barcode?: string
+  variant?: string
+  fat_percent?: string | null
+  package_size?: string | null
+  package_unit?: string
+}
+
+export interface ReceiptLine extends ProductDetails {
+  name: string
+  promotion_condition?: string
+  quantity: string | null
+  unit: string
+  unit_price: string | null
+  discount: string | null
+  line_total: string | null
+  line_total_is_net: boolean | null
+  category_id: string | null
+  allocated_amount?: string
+}
+
+export interface ReceiptDraft {
+  merchant: string
+  branch?: string
+  branch_address?: string
+  purchase_date: string | null
+  receipt_number: string
+  currency: 'KZT'
+  paid: string | null
+  order_discount: string
+  fees: string
+  confirm_paid: boolean
+  items: ReceiptLine[]
+}
+
+export interface ReceiptTotals {
+  subtotal: string
+  item_discounts: string
+  order_discount: string
+  fees: string
+  calculated: string
+  paid: string | null
+  difference: string | null
+  line_amounts: string[]
+}
+
+export interface SavedReceipt extends ReceiptDraft {
+  totals: ReceiptTotals
+}
+
+export interface ExtractedReceipt {
+  merchant: string | null
+  branch?: string | null
+  branch_address?: string | null
+  purchase_date: string | null
+  receipt_number: string | null
+  currency: string | null
+  paid: number | null
+  order_discount: number | null
+  fees: number | null
+  uncertain_fields: string[]
+  items: Array<{
+    name: string | null
+    brand?: string | null
+    barcode?: string | null
+    variant?: string | null
+    fat_percent?: number | null
+    package_size?: number | null
+    package_unit?: string | null
+    promotion_condition?: string | null
+    quantity: number | null
+    unit: string | null
+    unit_price: number | null
+    discount: number | null
+    line_total: number | null
+    line_total_is_net: boolean | null
+    suggested_category: string | null
+    uncertain_fields: string[]
+  }>
+}
+
+export interface ReceiptReport {
+  total: string
+  merchants: { name: string | null; total: string }[]
+  categories: CategoryBreakdown[]
+  highest_category: CategoryBreakdown | null
+  budgets: {
+    category_name: string | null
+    date_from: string
+    date_to: string
+    limit: string
+    spent: string
+    remaining: string
+  }[]
+  previous_total: string | null
+  change: string | null
+  change_pct: string | null
+}
+
 export interface TransactionCreate {
+  client_request_id?: string
   category_id?: string | null
   amount: number
   type: TransactionType
@@ -47,6 +148,19 @@ export interface TransactionCreate {
   merchant?: string | null
   transaction_date: string
   tags?: string[]
+}
+
+export interface ReceiptDetails {
+  total: number | null
+  currency: string | null
+  merchant: string | null
+  purchase_date: string | null
+}
+
+export interface ImageAnalysis {
+  reply: string
+  receipt: ReceiptDetails | null
+  receipt_request_id: string | null
 }
 
 export interface Budget {

@@ -15,6 +15,8 @@ from src.budgets.router import router as budgets_router
 from src.categories.router import router as categories_router
 from src.core.config import settings
 from src.deals.router import router as deals_router
+from src.deals.shopping_router import router as shopping_router
+from src.transactions.receipt_router import router as receipt_router
 from src.transactions.router import router as transactions_router
 
 
@@ -47,10 +49,12 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(transactions_router, prefix="/api")
+app.include_router(receipt_router, prefix="/api")
 app.include_router(budgets_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
 app.include_router(deals_router, prefix="/api")
+app.include_router(shopping_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])

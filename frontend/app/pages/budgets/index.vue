@@ -3,14 +3,14 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Лимиттер мен Бюджеттер</h2>
-        <p class="text-sm text-slate-500">Айлық, апталық немесе жылдық шығыс шегін белгілеп, артық шығынның алдын алыңыз</p>
+        <h2 class="sb-page-title">{{ t('Лимиттер мен Бюджеттер') }}</h2>
+        <p class="sb-page-caption">{{ t('Айлық, апталық немесе жылдық шығыс шегін белгілеп, артық шығынның алдын алыңыз') }}</p>
       </div>
       <UButton
         icon="i-heroicons-plus"
-        color="emerald"
+        color="primary"
         size="md"
-        label="Бюджет қосу"
+        :label="t('Бюджет қосу')"
         @click="openModal"
       />
     </div>
@@ -18,19 +18,19 @@
     <!-- Summary Strip when budgets exist -->
     <div v-if="budgets.budgets.value.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Белсенді лимиттер</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Белсенді лимиттер') }}</p>
         <p class="text-xl font-extrabold text-slate-900 dark:text-white mt-1 tabular-nums">
           {{ budgets.budgets.value.length }}
         </p>
       </UCard>
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Осы айдағы жалпы шығыс</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Осы айдағы жалпы шығыс') }}</p>
         <p class="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1 tabular-nums">
           {{ formatCurrency(monthlyExpense) }}
         </p>
       </UCard>
       <UCard>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ең жоғары игерілуі</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ t('Ең жоғары игерілуі') }}</p>
         <p
           class="text-xl font-extrabold mt-1 tabular-nums"
           :class="maxPercentage > 100 ? 'text-rose-600 dark:text-rose-400' : maxPercentage > 80 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'"
@@ -48,11 +48,11 @@
       <div class="w-14 h-14 rounded-2xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4">
         <UIcon name="i-heroicons-chart-pie" class="w-7 h-7" />
       </div>
-      <h3 class="font-bold text-base text-slate-900 dark:text-white">Бюджет лимиттері әлі орнатылмаған</h3>
+      <h3 class="font-bold text-base text-slate-900 dark:text-white">{{ t('Бюджет лимиттері әлі орнатылмаған') }}</h3>
       <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-        Жалпы айлық шығысқа немесе жеке санаттарға лимит қойып, қаржылық тәртіпті сақтаңыз
+        {{ t('Жалпы айлық шығысқа немесе жеке санаттарға лимит қойып, қаржылық тәртіпті сақтаңыз') }}
       </p>
-      <UButton class="mt-5" color="emerald" icon="i-heroicons-plus" label="Алғашқы лимитті орнату" @click="openModal" />
+      <UButton class="mt-5" color="primary" icon="i-heroicons-plus" :label="t('Алғашқы лимитті орнату')" @click="openModal" />
     </div>
 
     <!-- Budget Cards Grid -->
@@ -91,7 +91,7 @@
                 variant="ghost"
                 icon="i-heroicons-trash"
                 size="2xs"
-                title="Лимитті өшіру"
+                :title="t('Лимитті өшіру')"
                 @click="budgets.deleteBudget(b.id)"
               />
             </div>
@@ -99,8 +99,8 @@
 
           <div class="space-y-2">
             <div class="flex justify-between text-xs text-slate-500 tabular-nums">
-              <span>Жұмсалды: <strong class="text-slate-800 dark:text-slate-200">{{ formatCurrency(b.spent) }}</strong></span>
-              <span>Лимит: <strong class="text-slate-800 dark:text-slate-200">{{ formatCurrency(b.limit_amount) }}</strong></span>
+              <span>{{ t('Жұмсалды:') }} <strong class="text-slate-800 dark:text-slate-200">{{ formatCurrency(b.spent) }}</strong></span>
+              <span>{{ t('Лимит:') }} <strong class="text-slate-800 dark:text-slate-200">{{ formatCurrency(b.limit_amount) }}</strong></span>
             </div>
             <UProgress
               :value="Math.min(b.percentage, 100)"
@@ -110,7 +110,7 @@
           </div>
 
           <div class="text-xs flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-            <span class="text-slate-500">{{ b.remaining < 0 ? 'Асып кеткені:' : 'Қалдық:' }}</span>
+            <span class="text-slate-500">{{ b.remaining < 0 ? t('Асып кеткені:') : t('Қалдық:') }}</span>
             <span
               class="font-extrabold text-sm tabular-nums"
               :class="b.remaining < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
@@ -126,13 +126,13 @@
     <UModal v-model="isModalOpen">
       <div class="p-6 space-y-5">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Бюджет лимитін орнату</h3>
+          <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">{{ t('Бюджет лимитін орнату') }}</h3>
           <UButton color="gray" variant="ghost" icon="i-heroicons-x-mark" size="xs" @click="isModalOpen = false" />
         </div>
 
         <div class="space-y-3.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Санат</label>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('Санат') }}</label>
             <USelect v-model="newCategoryId" :options="categoryOptions" />
           </div>
 
@@ -144,13 +144,13 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Кезең</label>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('Кезең') }}</label>
             <USelect
               v-model="newPeriod"
               :options="[
-                { label: 'Айлық', value: 'monthly' },
-                { label: 'Апталық', value: 'weekly' },
-                { label: 'Жылдық', value: 'yearly' },
+                { label: t('Айлық'), value: 'monthly' },
+                { label: t('Апталық'), value: 'weekly' },
+                { label: t('Жылдық'), value: 'yearly' },
               ]"
             />
           </div>
@@ -166,8 +166,8 @@
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <UButton color="gray" variant="ghost" label="Бас тарту" @click="isModalOpen = false" />
-          <UButton color="emerald" label="Құру" :loading="isSubmitting" @click="handleCreate" />
+          <UButton color="gray" variant="ghost" :label="t('Бас тарту')" @click="isModalOpen = false" />
+          <UButton color="primary" :label="t('Құру')" :loading="isSubmitting" @click="handleCreate" />
         </div>
       </div>
     </UModal>
@@ -178,6 +178,7 @@
 import dayjs from 'dayjs'
 import type { BudgetStatus, CategoryTree } from '~~/shared/types'
 
+const { t, categoryLabel } = useLanguage()
 const budgets = useBudgets()
 const analytics = useAnalytics()
 const api = useApi()
@@ -198,10 +199,10 @@ function flattenCategories(tree: CategoryTree[]): CategoryTree[] {
 
 const categories = computed(() => flattenCategories(categoryTree.value))
 const categoryOptions = computed(() => [
-  { label: 'Жалпы бюджет (барлық шығыстар)', value: '' },
+  { label: t('Жалпы бюджет (барлық шығыстар)'), value: '' },
   ...categories.value
     .filter(c => c.type === 'expense')
-    .map(c => ({ label: translateCategoryName(c.name), value: c.id })),
+    .map(c => ({ label: categoryLabel(c.name), value: c.id })),
 ])
 
 const categoryFor = (id?: string | null) => categories.value.find(c => c.id === id)
@@ -210,14 +211,14 @@ const resolvedName = (b: BudgetStatus) => b.category?.name || categoryFor(b.cate
 
 const budgetTitle = (b: BudgetStatus) => {
   const n = resolvedName(b)
-  return n ? translateCategoryName(n) : 'Жалпы бюджет'
+  return n ? categoryLabel(n) : t('Жалпы бюджет')
 }
 
 const visualFor = (b: BudgetStatus) => {
   const n = resolvedName(b)
   if (!n) {
     return {
-      label: 'Жалпы бюджет',
+      label: t('Жалпы бюджет'),
       icon: 'i-heroicons-chart-pie',
       badgeClass: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
       hex: '#10b981',
@@ -231,9 +232,9 @@ const maxPercentage = computed(() =>
 )
 
 const periodLabel = (period: string) => {
-  if (period === 'weekly') return 'Апталық лимит'
-  if (period === 'yearly') return 'Жылдық лимит'
-  return 'Айлық лимит'
+  if (period === 'weekly') return t('Апталық лимит')
+  if (period === 'yearly') return t('Жылдық лимит')
+  return t('Айлық лимит')
 }
 
 const openModal = () => {
@@ -257,7 +258,7 @@ const handleCreate = async () => {
   formError.value = ''
   const errMsg = validateMoneyInput(newLimit.value)
   if (errMsg) {
-    formError.value = errMsg
+    formError.value = t(errMsg)
     return
   }
 
@@ -273,7 +274,7 @@ const handleCreate = async () => {
     newLimit.value = ''
     newCategoryId.value = ''
   } catch (err: any) {
-    formError.value = formatApiError(err, 'Бюджетті құру мүмкін болмады')
+    formError.value = t(formatApiError(err, t('Бюджетті құру мүмкін болмады')))
   } finally {
     isSubmitting.value = false
   }

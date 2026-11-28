@@ -7,11 +7,40 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.analytics import schemas, services
+from src.analytics import receipt_details, schemas, services
 from src.core.dependencies import get_current_user, get_db
 from src.transactions.models import TransactionType
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+@router.get("/receipt-details")
+async def get_receipt_details(
+    date_from: date, date_to: date,
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user),
+):
+    return await receipt_details.deep_report(db, current_user.id, date_from, date_to)
+
+
+@router.get("/receipt-lines")
+async def get_receipt_lines(
+    date_from: date, date_to: date, group: receipt_details.Group, key: str = Query(max_length=900),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user),
+):
+    return await receipt_details.drilldown(db, current_user.id, date_from, date_to, group, key, offset)
+
+
+@router.get("/receipts", response_model=schemas.ReceiptReport)
+async def get_receipt_report(
+    date_from: date,
+    date_to: date,
+    previous_from: date | None = None,
+    previous_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return await services.receipt_report(db, current_user.id, date_from, date_to, previous_from, previous_to)
 
 
 @router.get("/summary", response_model=schemas.SummaryResponse)

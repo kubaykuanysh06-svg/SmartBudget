@@ -3,19 +3,21 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Жеңілдіктер мен баға талдауы</h2>
-        <p class="text-sm text-slate-500">Сатып алар алдында бағаның тиімділігін ЖИ арқылы тексеріңіз</p>
+        <h2 class="sb-page-title">{{ t('Жеңілдіктер мен баға талдауы') }}</h2>
+        <p class="sb-page-caption">{{ t('Сатып алар алдында бағаның тиімділігін ЖИ арқылы тексеріңіз') }}</p>
       </div>
       <UButton
         icon="i-heroicons-arrow-path"
         color="gray"
         variant="soft"
         size="sm"
-        label="Жаңарту"
+        :label="t('Жаңарту')"
         :loading="deals.loading.value"
         @click="deals.fetchDeals()"
       />
     </div>
+
+    <PriceComparison />
 
     <!-- AI Price Check Card -->
     <div class="rounded-3xl p-6 sm:p-7 bg-gradient-to-br from-emerald-500/12 via-teal-500/6 to-transparent ring-1 ring-emerald-500/25 space-y-4">
@@ -24,9 +26,9 @@
           <UIcon name="i-heroicons-magnifying-glass-circle" class="w-6 h-6" />
         </div>
         <div>
-          <h3 class="font-extrabold text-base text-slate-900 dark:text-white">ЖИ арқылы бағаны тексеру</h3>
+          <h3 class="font-extrabold text-base text-slate-900 dark:text-white">{{ t('ЖИ арқылы бағаны тексеру') }}</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            Тауар атауы мен бағасын жазыңыз — Gemini оның нарыққа сай екенін бағалайды
+            {{ t('Тауар атауы мен бағасын жазыңыз — Gemini оның нарыққа сай екенін бағалайды') }}
           </p>
         </div>
       </div>
@@ -36,7 +38,7 @@
           v-model="productToCheck"
           size="lg"
           class="flex-1"
-          placeholder="Мысалы: Sony WH-1000XM5 құлаққабы немесе Lavazza кофесі 1 кг"
+          :placeholder="t('Мысалы: Sony WH-1000XM5 құлаққабы немесе Lavazza кофесі 1 кг')"
         />
         <UInput
           v-model="priceToCheck"
@@ -45,13 +47,13 @@
           step="0.01"
           min="0.01"
           class="w-full sm:w-48"
-          :placeholder="`Бағасы (${currency})`"
+          :placeholder="tr(`Бағасы (${currency})`, `Цена (${currency})`, `Price (${currency})`)"
         />
         <UButton
-          color="emerald"
+          color="primary"
           size="lg"
           icon="i-heroicons-sparkles"
-          label="Тексеру"
+          :label="t('Тексеру')"
           :loading="isAnalyzing"
           @click="handleCheckPrice"
         />
@@ -86,14 +88,14 @@
         </div>
         <p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{{ analysisResult.explanation }}</p>
         <p v-if="analysisResult.estimated_fair_price != null" class="text-xs text-slate-500 tabular-nums">
-          Болжамды әділ нарықтық баға: <strong>{{ formatCurrency(analysisResult.estimated_fair_price) }}</strong>
+          {{ t('Болжамды әділ нарықтық баға:') }} <strong>{{ formatCurrency(analysisResult.estimated_fair_price) }}</strong>
         </p>
       </div>
     </div>
 
     <!-- Active Deals Grid -->
     <div class="space-y-4">
-      <h3 class="text-base font-bold text-slate-900 dark:text-white">Белсенді науқандар мен жеңілдіктер</h3>
+      <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ t('Белсенді науқандар мен жеңілдіктер') }}</h3>
 
       <div
         v-if="deals.deals.value.length === 0"
@@ -102,9 +104,9 @@
         <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-heroicons-tag" class="w-6 h-6" />
         </div>
-        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Қазірше белсенді жеңілдіктер тізімі бос</p>
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ t('Қазірше белсенді жеңілдіктер тізімі бос') }}</p>
         <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-          Науқандар фондық сканер арқылы жаңартылады. Жоғарыдағы ЖИ виджеті арқылы кез келген тауар бағасын қазір тексере аласыз.
+          {{ t('Науқандар фондық сканер арқылы жаңартылады. Жоғарыдағы ЖИ виджеті арқылы кез келген тауар бағасын қазір тексере аласыз.') }}
         </p>
       </div>
 
@@ -138,10 +140,10 @@
               v-if="item.url"
               :to="item.url"
               target="_blank"
-              color="emerald"
+              color="primary"
               variant="soft"
               size="xs"
-              label="Өту"
+              :label="t('Өту')"
               trailing-icon="i-heroicons-arrow-top-right-on-square"
             />
           </div>
@@ -154,6 +156,7 @@
 <script setup lang="ts">
 import type { PriceAnalysis } from '~~/shared/types'
 
+const { t, tr } = useLanguage()
 const deals = useDeals()
 const ai = useAiInsights()
 
@@ -166,21 +169,21 @@ const analysisResult = ref<PriceAnalysis | null>(null)
 const { currency, formatCurrency } = useCurrencyFormat()
 
 const verdictTitle = (verdict: PriceAnalysis['verdict']) => {
-  if (verdict === 'good_deal') return 'Тиімді баға!'
-  if (verdict === 'overpriced') return 'Нарықтан қымбаттау'
-  return 'Қалыпты нарықтық баға'
+  if (verdict === 'good_deal') return t('Тиімді баға!')
+  if (verdict === 'overpriced') return t('Нарықтан қымбаттау')
+  return t('Қалыпты нарықтық баға')
 }
 
 const handleCheckPrice = async () => {
   analysisError.value = ''
   analysisResult.value = null
   if (!productToCheck.value.trim()) {
-    analysisError.value = 'Тексеру үшін тауар атауын енгізіңіз'
+    analysisError.value = t('Тексеру үшін тауар атауын енгізіңіз')
     return
   }
   const moneyErr = validateMoneyInput(priceToCheck.value)
   if (moneyErr) {
-    analysisError.value = moneyErr
+    analysisError.value = t(moneyErr)
     return
   }
 
@@ -193,8 +196,8 @@ const handleCheckPrice = async () => {
   } catch (err: any) {
     const status = getErrorStatus(err)
     analysisError.value = status === 503
-      ? 'Бағаны ЖИ арқылы тексеру үшін backend/.env файлына жарамды GEMINI_API_KEY орнатыңыз.'
-      : formatApiError(err, 'Gemini-ден баға талдауын алу мүмкін болмады.')
+      ? t('Бағаны ЖИ арқылы тексеру үшін backend/.env файлына жарамды GEMINI_API_KEY орнатыңыз.')
+      : t(formatApiError(err, t('Gemini-ден баға талдауын алу мүмкін болмады.')))
   } finally {
     isAnalyzing.value = false
   }

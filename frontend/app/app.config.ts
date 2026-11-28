@@ -1,13 +1,13 @@
 export default defineAppConfig({
   ui: {
-    primary: 'emerald',
+    primary: 'violet',
     gray: 'slate',
     card: {
-      rounded: 'rounded-2xl',
-      shadow: 'shadow-sm',
-      background: 'bg-white dark:bg-slate-900/90',
-      ring: 'ring-1 ring-slate-200/80 dark:ring-slate-800/90',
-      divide: 'divide-y divide-slate-100 dark:divide-slate-800/80',
+      rounded: 'rounded-[20px]',
+      shadow: 'shadow-[var(--sb-shadow)]',
+      background: 'bg-[var(--sb-surface)]',
+      ring: 'ring-1 ring-[var(--sb-line)]',
+      divide: 'divide-y divide-[var(--sb-line)]',
     },
     button: {
       rounded: 'rounded-xl',
@@ -20,9 +20,10 @@ export default defineAppConfig({
       rounded: 'rounded-xl',
     },
     modal: {
-      rounded: 'rounded-2xl',
+      rounded: 'rounded-[22px]',
+      background: 'bg-[var(--sb-surface)] dark:bg-[var(--sb-surface)]',
       overlay: {
-        background: 'bg-slate-950/60 backdrop-blur-xs',
+        background: 'bg-[#160f32]/55 backdrop-blur-sm',
       },
     },
   },

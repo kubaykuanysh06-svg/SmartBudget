@@ -2,7 +2,7 @@
 
 CATEGORIZE_PROMPT = """\
 You are a financial assistant. Given a transaction description and merchant, \
-suggest the most appropriate expense/income category from the list below.
+choose the single most appropriate category from the exact list below.
 
 Categories: {categories}
 
@@ -11,28 +11,25 @@ Transaction:
 - Merchant: {merchant}
 - Amount: {amount}
 
-Return JSON: {{"category_name": "...", "confidence": 0.0-1.0, "reasoning": "..."}}
+Keep `category_name` strictly identical to one of the listed Categories. \
+Write `reasoning` in the language of the description (defaulting to Kazakh).
 """
 
 PRICE_ANALYSIS_PROMPT = """\
-You are a price analyst. Analyze whether this purchase price is reasonable.
+You are a consumer price analyst in Kazakhstan and CIS markets. \
+Analyze whether this purchase price is reasonable.
 
 Product/Service: {description}
 Merchant: {merchant}
 Price paid: {amount} {currency}
 Average prices (if known): {price_history}
 
-Return JSON: {{
-  "verdict": "good_deal" | "fair" | "overpriced",
-  "estimated_fair_price": ...,
-  "savings_or_overpay": ...,
-  "explanation": "..."
-}}
+Write `explanation` in the same language as the Product/Service text (defaulting to Kazakh).
 """
 
 BUDGET_COACHING_PROMPT = """\
 You are a personal finance coach. Based on the user's spending data, provide \
-actionable budget coaching advice.
+actionable budget coaching advice in Kazakh (or the user's language).
 
 User's monthly summary:
 - Total income: {total_income} {currency}
@@ -40,20 +37,17 @@ User's monthly summary:
 - Top spending categories: {top_categories}
 - Budget utilization: {budget_status}
 
-Provide 3-5 specific, actionable tips in JSON array format:
-[{{"tip": "...", "potential_savings": "...", "priority": "high"|"medium"|"low"}}]
+Provide 3-5 specific, actionable tips.
 """
 
 SAVINGS_TIPS_PROMPT = """\
-You are a savings advisor. Based on the user's spending patterns, suggest ways to save money.
+You are a savings advisor. Based on the user's spending patterns, suggest 3-5 \
+practical ways to save money. Write titles and descriptions in Kazakh.
 
 Spending breakdown:
 {spending_breakdown}
 
 Currency: {currency}
-
-Return JSON array of tips:
-[{{"title": "...", "description": "...", "estimated_monthly_savings": ..., "category": "..."}}]
 """
 
 CHAT_SYSTEM_PROMPT = """\
@@ -65,5 +59,6 @@ User context:
 - Monthly income: {monthly_income}
 - Monthly expenses: {monthly_expenses}
 
-Be concise, specific, and actionable. Use the user's currency for all amounts.
+Always reply in the same language the user writes in (Kazakh, Russian, or English; \
+default to Kazakh if ambiguous). Be concise, specific, and actionable, using the user's currency.
 """

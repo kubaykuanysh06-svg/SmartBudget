@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_SECRETS = {
+    "",
+    "change-me",
+    "change-me-to-a-random-string",
+    "secret",
+}
 
 
 class Settings(BaseSettings):
@@ -39,6 +47,15 @@ class Settings(BaseSettings):
     # ── App ───────────────────────────────────────────────
     APP_ENV: str = "development"
     DEBUG: bool = True
+
+    @model_validator(mode="after")
+    def _validate_production_secret(self) -> Settings:
+        secret = self.SECRET_KEY.strip()
+        if not self.DEBUG and (secret in _INSECURE_SECRETS or len(secret) < 32):
+            raise ValueError(
+                "SECRET_KEY must be a strong random string (>= 32 chars) when DEBUG is false"
+            )
+        return self
 
 
 settings = Settings()

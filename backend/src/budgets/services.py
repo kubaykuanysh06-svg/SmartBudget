@@ -15,7 +15,12 @@ from src.budgets.schemas import BudgetStatus
 from src.categories.models import CategoryType
 from src.categories.services import get_category
 from src.core.exceptions import BadRequest, NotFound
-from src.transactions.repositories import spending_by_category_in_range
+from src.transactions.models import TransactionType
+from src.transactions.repositories import (
+    daily_expenses_in_range,
+    spending_by_category_in_range,
+    sum_by_type,
+)
 
 
 # ── Helpers ───────────────────────────────────────────────
@@ -117,37 +122,22 @@ async def delete_budget(
 # ── Status calculation ────────────────────────────────────
 
 
-async def calculate_status(
-    db: AsyncSession, budget: Budget
-) -> BudgetStatus:
-    """Calculate how much has been spent vs. the budget limit."""
+def _effective_window(budget: Budget) -> tuple[date, date, bool]:
+    """Clamp the current period window to the budget's own start/end dates."""
     period_start, period_end = _current_period_range(budget)
-    # A budget only covers its own dates: one that has not started yet or has
-    # already ended has spent nothing in the current period.
+    if budget.start_date > period_start:
+        period_start = budget.start_date
     if budget.end_date is not None and budget.end_date < period_end:
         period_end = budget.end_date
-    in_effect = budget.start_date <= period_end and period_start <= period_end
+    in_effect = budget.is_active and period_start <= period_end
+    return period_start, period_end, in_effect
 
-    if not in_effect:
-        spent = Decimal("0")
-    elif budget.category_id:
-        spent = await spending_by_category_in_range(
-            db, budget.user_id, budget.category_id, period_start, period_end
-        )
-    else:
-        # Total budget across all categories
-        from src.transactions.repositories import sum_by_type
-        from src.transactions.models import TransactionType
 
-        spent = await sum_by_type(
-            db, budget.user_id, TransactionType.expense, period_start, period_end
-        )
-
+def _build_budget_status(budget: Budget, spent: Decimal) -> BudgetStatus:
     remaining = budget.limit_amount - spent
     percentage = (
         float(spent / budget.limit_amount * 100) if budget.limit_amount else 0.0
     )
-
     return BudgetStatus(
         **{
             **BudgetStatus.model_validate(budget).model_dump(),
@@ -158,8 +148,55 @@ async def calculate_status(
     )
 
 
+async def calculate_status(
+    db: AsyncSession, budget: Budget
+) -> BudgetStatus:
+    """Calculate how much has been spent vs. the budget limit."""
+    period_start, period_end, in_effect = _effective_window(budget)
+
+    if not in_effect:
+        spent = Decimal("0")
+    elif budget.category_id:
+        spent = await spending_by_category_in_range(
+            db, budget.user_id, budget.category_id, period_start, period_end
+        )
+    else:
+        spent = await sum_by_type(
+            db, budget.user_id, TransactionType.expense, period_start, period_end
+        )
+
+    return _build_budget_status(budget, spent)
+
+
 async def list_budgets_with_status(
     db: AsyncSession, user_id: uuid.UUID
 ) -> list[BudgetStatus]:
     budgets = await list_budgets(db, user_id)
-    return [await calculate_status(db, b) for b in budgets]
+    if not budgets:
+        return []
+
+    windows = [(b, *_effective_window(b)) for b in budgets]
+    active_windows = [(s, e) for _, s, e, ok in windows if ok]
+    if not active_windows:
+        return [_build_budget_status(b, Decimal("0")) for b in budgets]
+
+    min_start = min(s for s, _ in active_windows)
+    max_end = max(e for _, e in active_windows)
+    daily_rows = await daily_expenses_in_range(db, user_id, min_start, max_end)
+
+    statuses: list[BudgetStatus] = []
+    for budget, period_start, period_end, in_effect in windows:
+        if not in_effect:
+            statuses.append(_build_budget_status(budget, Decimal("0")))
+            continue
+        spent = sum(
+            (
+                amt
+                for cat_id, txn_date, amt in daily_rows
+                if period_start <= txn_date <= period_end
+                and (budget.category_id is None or cat_id == budget.category_id)
+            ),
+            Decimal("0"),
+        )
+        statuses.append(_build_budget_status(budget, spent))
+    return statuses

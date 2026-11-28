@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,18 +38,23 @@ async def login(body: schemas.UserLogin, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=schemas.TokenResponse)
-async def refresh(body: schemas.RefreshRequest):
+async def refresh(body: schemas.RefreshRequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(body.refresh_token)
         if payload.get("type") != "refresh":
             raise BadRequest("Invalid token type")
         user_id = payload["sub"]
-    except (JWTError, KeyError):
+        user_uuid = uuid.UUID(user_id)
+    except (JWTError, KeyError, ValueError):
+        raise BadRequest("Invalid refresh token")
+
+    user = await services.get_user_by_id(db, user_uuid)
+    if user is None:
         raise BadRequest("Invalid refresh token")
 
     return schemas.TokenResponse(
-        access_token=create_access_token(user_id),
-        refresh_token=create_refresh_token(user_id),
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
     )
 
 

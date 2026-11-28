@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import uuid
+from typing import TypeVar
 
 from fastapi import HTTPException
 from google import genai
-from google.genai import errors
+from google.genai import errors, types
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,39 +31,56 @@ from src.core.config import settings
 
 # ── Gemini client helper ──────────────────────────────────
 
-
 _PLACEHOLDER_GEMINI_KEYS = {"", "your-gemini-api-key", "change-me"}
+T = TypeVar("T")
 
 
-async def _call_gemini(prompt: str) -> str:
+async def _call_gemini(
+    prompt: str,
+    *,
+    config: types.GenerateContentConfig | None = None,
+) -> str:
     """Call the Gemini API and return the text response."""
     api_key = settings.GEMINI_API_KEY.strip()
     if api_key in _PLACEHOLDER_GEMINI_KEYS:
         raise HTTPException(status_code=503, detail="Gemini API key is not configured")
 
     try:
-        async with genai.Client(api_key=settings.GEMINI_API_KEY).aio as client:
+        async with genai.Client(api_key=api_key).aio as client:
             response = await client.models.generate_content(
                 model=settings.GEMINI_MODEL,
                 contents=prompt,
+                config=config,
             )
     except errors.APIError:
-        raise HTTPException(status_code=502, detail="Gemini could not answer the request") from None
+        raise HTTPException(
+            status_code=502, detail="Gemini could not answer the request"
+        ) from None
     if not response.text:
         raise HTTPException(status_code=502, detail="Gemini returned an empty response")
     return response.text
 
 
-def _parse_json(text: str) -> dict | list:
-    """Extract JSON from a Gemini response that may have markdown fences."""
-    cleaned = text.strip()
+async def _call_gemini_structured(prompt: str, schema: type[T] | object) -> T:
+    """Call Gemini with JSON structured output and validate with Pydantic."""
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=schema,
+    )
+    raw = await _call_gemini(prompt, config=config)
+    cleaned = raw.strip()
     if cleaned.startswith("```"):
-        lines = cleaned.split("\n")
-        lines = lines[1:]  # remove opening ```json
+        lines = cleaned.split("\n")[1:]
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         cleaned = "\n".join(lines)
-    return json.loads(cleaned)
+    try:
+        adapter = TypeAdapter(schema)
+        return adapter.validate_json(cleaned)
+    except (ValidationError, json.JSONDecodeError, ValueError):
+        raise HTTPException(
+            status_code=502, detail="Gemini returned an invalid structured response"
+        ) from None
 
 
 # ── Public API ────────────────────────────────────────────
@@ -79,9 +98,7 @@ async def auto_categorize(
         merchant=merchant or "N/A",
         amount=amount,
     )
-    raw = await _call_gemini(prompt)
-    data = _parse_json(raw)
-    return CategorizeSuggestion(**data)
+    return await _call_gemini_structured(prompt, CategorizeSuggestion)
 
 
 async def analyze_price(
@@ -98,9 +115,7 @@ async def analyze_price(
         currency=currency,
         price_history=price_history,
     )
-    raw = await _call_gemini(prompt)
-    data = _parse_json(raw)
-    return PriceAnalysis(**data)
+    return await _call_gemini_structured(prompt, PriceAnalysis)
 
 
 async def generate_insights(
@@ -125,9 +140,7 @@ async def get_savings_tips(
         spending_breakdown=spending_breakdown,
         currency=currency,
     )
-    raw = await _call_gemini(prompt)
-    data = _parse_json(raw)
-    return [SavingsTip(**tip) for tip in data]
+    return await _call_gemini_structured(prompt, list[SavingsTip])
 
 
 async def chat(
@@ -141,6 +154,6 @@ async def chat(
         monthly_income=monthly_income,
         monthly_expenses=monthly_expenses,
     )
-    prompt = f"{system}\n\nUser: {message}\nAssistant:"
-    raw = await _call_gemini(prompt)
+    config = types.GenerateContentConfig(system_instruction=system)
+    raw = await _call_gemini(message, config=config)
     return ChatResponse(reply=raw.strip())

@@ -18,7 +18,7 @@ from src.analytics.schemas import (
 )
 from src.categories.models import Category
 from src.transactions.models import Transaction, TransactionType
-from src.transactions.repositories import monthly_totals, sum_by_category, sum_by_type
+from src.transactions.repositories import monthly_totals, sum_by_type
 
 
 async def summary(
@@ -56,27 +56,36 @@ async def by_category(
     date_to: date | None = None,
     txn_type: TransactionType | None = TransactionType.expense,
 ) -> list[CategoryBreakdown]:
-    rows = await sum_by_category(
-        db, user_id, date_from=date_from, date_to=date_to, txn_type=txn_type
-    )
-    grand_total = sum(r[1] for r in rows) or Decimal("1")
-
-    result: list[CategoryBreakdown] = []
-    for cat_id, total in rows:
-        # Resolve category name
-        cat_name: str | None = None
-        if cat_id:
-            cat_res = await db.execute(select(Category.name).where(Category.id == cat_id))
-            cat_name = cat_res.scalar()
-
-        result.append(
-            CategoryBreakdown(
-                category_id=str(cat_id) if cat_id else None,
-                category_name=cat_name,
-                total=total,
-                percentage=round(float(total / grand_total * 100), 2),
-            )
+    stmt = (
+        select(
+            Transaction.category_id,
+            Category.name,
+            func.sum(Transaction.amount),
         )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(Transaction.user_id == user_id)
+        .group_by(Transaction.category_id, Category.name)
+    )
+    if txn_type:
+        stmt = stmt.where(Transaction.type == txn_type)
+    if date_from:
+        stmt = stmt.where(Transaction.transaction_date >= date_from)
+    if date_to:
+        stmt = stmt.where(Transaction.transaction_date <= date_to)
+
+    raw_rows = (await db.execute(stmt)).all()
+    rows = [(r[0], r[1], Decimal(str(r[2]))) for r in raw_rows]
+    grand_total = sum(r[2] for r in rows) or Decimal("1")
+
+    result = [
+        CategoryBreakdown(
+            category_id=str(cat_id) if cat_id else None,
+            category_name=cat_name,
+            total=total,
+            percentage=round(float(total / grand_total * 100), 2),
+        )
+        for cat_id, cat_name, total in rows
+    ]
     return sorted(result, key=lambda x: x.total, reverse=True)
 
 

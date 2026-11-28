@@ -325,25 +325,36 @@ async def test_budget_counts_only_inside_its_dates(client):
     acc = await register_and_login(client, "Dates")
     h = acc["headers"]
     today = date.today()
+    first_of_month = today.replace(day=1)
+    next_month = (first_of_month + timedelta(days=32)).replace(day=1)
+    ended = first_of_month - timedelta(days=1)
+
     res = await client.post(
         "/api/transactions", headers=h,
         json={"amount": 8000, "type": "expense", "description": "x",
               "transaction_date": today.isoformat()},
     )
     assert res.status_code == 201
-    first_of_month = today.replace(day=1)
-    next_month = (first_of_month + timedelta(days=32)).replace(day=1)
-    ended = first_of_month - timedelta(days=1)
-    for body in (
+
+    # Also test a mid-month start_date excluding earlier expenses in the same month
+    tomorrow_in_month = today + timedelta(days=1) if today < next_month - timedelta(days=1) else None
+    bodies = [
         {"start_date": next_month.isoformat()},  # not started yet
         {"start_date": ended.replace(day=1).isoformat(), "end_date": ended.isoformat()},  # ended
         {"start_date": today.isoformat()},  # current
-    ):
+    ]
+    if tomorrow_in_month is not None:
+        bodies.append({"start_date": tomorrow_in_month.isoformat()})
+
+    created_ids = {}
+    for body in bodies:
         r = await client.post(
             "/api/budgets", headers=h,
             json={"limit_amount": 20000, "period": "monthly", **body},
         )
         assert r.status_code == 201, r.text
+        created_ids[body["start_date"]] = r.json()["id"]
+
     spent = {
         b["start_date"]: Decimal(b["spent"])
         for b in (await client.get("/api/budgets/status", headers=h)).json()
@@ -351,6 +362,38 @@ async def test_budget_counts_only_inside_its_dates(client):
     assert spent[next_month.isoformat()] == 0
     assert spent[ended.replace(day=1).isoformat()] == 0
     assert spent[today.isoformat()] == Decimal("8000")
+    if tomorrow_in_month is not None:
+        assert spent[tomorrow_in_month.isoformat()] == 0
+
+    # Deactivating an active budget sets spent to 0
+    deactivated = await client.put(
+        f"/api/budgets/{created_ids[today.isoformat()]}",
+        headers=h,
+        json={"is_active": False},
+    )
+    assert deactivated.status_code == 200
+    spent_after = {
+        b["start_date"]: Decimal(b["spent"])
+        for b in (await client.get("/api/budgets/status", headers=h)).json()
+    }
+    assert spent_after[today.isoformat()] == 0
+
+
+async def test_refresh_token_requires_existing_user(client):
+    from src.core.security import create_refresh_token
+
+    acc = await register_and_login(client, "RefreshUser")
+    login_res = await client.post(
+        "/api/auth/login", json={"email": acc["email"], "password": acc["password"]}
+    )
+    refresh_tok = login_res.json()["refresh_token"]
+    ok = await client.post("/api/auth/refresh", json={"refresh_token": refresh_tok})
+    assert ok.status_code == 200
+    assert "access_token" in ok.json()
+
+    ghost_token = create_refresh_token(str(uuid.uuid4()))
+    bad = await client.post("/api/auth/refresh", json={"refresh_token": ghost_token})
+    assert bad.status_code == 400
 
 
 async def test_category_type_must_match_transaction_type(client, db):

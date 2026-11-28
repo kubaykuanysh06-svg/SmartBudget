@@ -1,42 +1,63 @@
-# Environments
-.env*
+# ── Environments & Secrets ────────────────────────────────
+.env
+.env.*
+*.env
 !.env.example
-.venv
-env/
-venv/
-ENV/
+!**/.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+aws/
 
-# Python
+# ── Python / Backend ─────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
+.coverage.*
 htmlcov/
 dist/
 build/
 *.egg-info/
 
-# Node / Nuxt
+# ── Node / Nuxt / Frontend ───────────────────────────────
 node_modules/
 .nuxt/
 .output/
-dist/
 .nitro/
 .cache/
+.data/
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# IDE / OS
+# ── Docker & Local Data ──────────────────────────────────
+pgdata/
+redisdata/
+*.sqlite3
+*.db
+
+# ── IDE / OS / Temp ──────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+*.bak
+*.tmp
 .DS_Store
 Thumbs.db
-
-# Docker
-pgdata/
-redisdata/
-
-
-aws/
+Desktop.ini

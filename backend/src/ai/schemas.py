@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 class CategorizeSuggestion(BaseModel):
     category_name: str
-    confidence: float
+    confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
 
 
 class PriceAnalysis(BaseModel):
-    verdict: str  # good_deal / fair / overpriced
+    verdict: Literal["good_deal", "fair", "overpriced"]
     estimated_fair_price: float | None = None
     savings_or_overpay: float | None = None
     explanation: str

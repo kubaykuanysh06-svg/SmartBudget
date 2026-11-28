@@ -23,7 +23,7 @@ class User(Base):
     )
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    currency: Mapped[str] = mapped_column(String(3), default="RUB", nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="KZT", nullable=False)
     settings: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -32,15 +32,9 @@ class User(Base):
     )
 
     # ── Relationships ─────────────────────────────────────
-    transactions = relationship(
-        "Transaction", back_populates="user", lazy="selectin"
-    )
-    categories = relationship("Category", back_populates="user", lazy="selectin")
-    budgets = relationship("Budget", back_populates="user", lazy="selectin")
-    recurring_transactions = relationship(
-        "RecurringTransaction", back_populates="user", lazy="selectin"
-    )
-    ai_insights = relationship("AiInsight", back_populates="user", lazy="selectin")
-    price_histories = relationship(
-        "PriceHistory", back_populates="user", lazy="selectin"
-    )
+    transactions = relationship("Transaction", back_populates="user")
+    categories = relationship("Category", back_populates="user")
+    budgets = relationship("Budget", back_populates="user")
+    recurring_transactions = relationship("RecurringTransaction", back_populates="user")
+    ai_insights = relationship("AiInsight", back_populates="user")
+    price_histories = relationship("PriceHistory", back_populates="user")

@@ -241,6 +241,18 @@ const openModal = () => {
   isModalOpen.value = true
 }
 
+const periodStartDate = (period: string) => {
+  const now = dayjs()
+  if (period === 'weekly') {
+    const offset = (now.day() + 6) % 7 // Monday = 0
+    return now.subtract(offset, 'day').format('YYYY-MM-DD')
+  }
+  if (period === 'yearly') {
+    return now.startOf('year').format('YYYY-MM-DD')
+  }
+  return now.startOf('month').format('YYYY-MM-DD')
+}
+
 const handleCreate = async () => {
   formError.value = ''
   const errMsg = validateMoneyInput(newLimit.value)
@@ -255,7 +267,7 @@ const handleCreate = async () => {
       category_id: newCategoryId.value || null,
       limit_amount: Number(String(newLimit.value).replace(',', '.')),
       period: newPeriod.value,
-      start_date: dayjs().format('YYYY-MM-DD'),
+      start_date: periodStartDate(newPeriod.value),
     })
     isModalOpen.value = false
     newLimit.value = ''

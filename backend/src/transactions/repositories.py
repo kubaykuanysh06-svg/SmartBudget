@@ -186,3 +186,28 @@ async def spending_by_category_in_range(
     )
     result = await db.execute(stmt)
     return Decimal(str(result.scalar()))
+
+
+async def daily_expenses_in_range(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+) -> list[tuple[uuid.UUID | None, date, Decimal]]:
+    """Aggregate expense totals grouped by (category_id, transaction_date) in one query."""
+    stmt = (
+        select(
+            Transaction.category_id,
+            Transaction.transaction_date,
+            func.sum(Transaction.amount),
+        )
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.type == TransactionType.expense,
+            Transaction.transaction_date >= date_from,
+            Transaction.transaction_date <= date_to,
+        )
+        .group_by(Transaction.category_id, Transaction.transaction_date)
+    )
+    result = await db.execute(stmt)
+    return [(row[0], row[1], Decimal(str(row[2]))) for row in result.all()]
